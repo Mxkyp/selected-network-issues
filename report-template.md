@@ -26,12 +26,11 @@ Name and surname, index number
 
 *Explanation of the functionalities of the tools and technologies planned to use, with a justification of how they allow one to tackle the problem under consideration.*
 
-•	k3d
-•	Linkerd
-•	Grafana
-•	ElasticSearch / VictoriaLogs
-•	Prometheus / VictoriaMetrics
-•	Example microservice application (e.g., Google Online Boutique)
+* **k3d:** A lightweight Kubernetes distribution that runs Kubernetes clusters inside Docker containers. It allows setting up a cluster inside single-node environments or on a local machine (e.g., PC). Also removes the need of using paid cloud k8s engines (e.g., AKS EKS, GKS)
+* **Linkerd:** An ultra-lightweight Service Mesh that provides automatic mTLS encryption, service identity verification, and granular Zero-Trust access control policies without requiring application code changes.
+* **Grafana:** A visualization dashboard platform providing real-time insights into collected metrics. Charts, graphs, and visual metrics will highlight the new functionalities provided by the Service Mesh.
+* **Prometheus / VictoriaMetrics:** Time-series databases collecting network metrics and policy audit logs from Service Mesh services. They provide the data needed to audit system health and verify policy enforcement during attack simulations.
+* **Example microservice application (e.g., Google Online Boutique):** A distributed application serving as a testing environment for the proposed solution. 
 
 ## 3. Functional requirements
 
@@ -50,3 +49,12 @@ Name and surname, index number
 ## 5. Work division
 
 *Description of the responsibilities of each group member. A few people may be responsible for the same project aspect, while one person may be in charge of multiple aspects. The key is to share the work evenly among the group members.*
+ 
+| Member               | Responsibility                                                                                                                                                   |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Mikołaj Pawłoś       | Set up the Kubernetes (k3d) cluster and deploying the example microservice application                                                                           |  
+| Jędrzej Bartoszewski | Integrating a Service Mesh solution (Linkerd) into the app environment, basic configuration for mTLS and POC purposes                                            |   
+| Michał Domagała      | Designing and launching the attacks on the enhanced version of the system's environment as a live-proof, implementing Zero-Trust access policies in Service Mesh |   
+| Kacper Maziarz       | Integrate visualising, log- and metrics-aggregating tools with the Service Mesh solution*                                                                        |   
+
+------------------------------------------------------------------------------------------------------------------------------------------------
