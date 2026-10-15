@@ -25,7 +25,14 @@ Name and surname, index number
 ## 2. Selected tools
 
 *Explanation of the functionalities of the tools and technologies planned to use, with a justification of how they allow one to tackle the problem under consideration.*
- 
+
+•	k3d
+•	Linkerd
+•	Grafana
+•	ElasticSearch / VictoriaLogs
+•	Prometheus / VictoriaMetrics
+•	Example microservice application (e.g., Google Online Boutique)
+
 ## 3. Functional requirements
 
 *Description of the required project functionalities.*
@@ -34,7 +41,7 @@ Name and surname, index number
 
 *Schedule of the development process involving the order and deadlines of all the partial steps of the project realization.*
 
-1. Set up the k3d cluster and deploy the example microservice application (Google Online Boutique) [Week 3-4]
+1. Set up the k3d cluster and deploy the example microservice application (e.g., Google Online Boutique) [Week 3-4]
 2. Deploy a Service Mesh solution (Linkerd) with a basic configuration to demonstrate encrypted service-to-service communication (mTLS) and basic traffic verification as a Proof of Concept [Week 5-6] – **Deadline: 6.11.2026**
 3. Design and implement strict Zero-Trust access policies in Linkerd [Week 7]
 4. Integrate Grafana and Prometheus with Linkerd for continuous security and traffic monitoring [Week 8]
