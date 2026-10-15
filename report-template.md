@@ -12,6 +12,7 @@ Group members (Name and surname, index number)
 ```
 Name and surname, index number
 ```
+# The problem
 
 ## 1. Problem description
 
