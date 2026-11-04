@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click setup (Linux/macOS): k3d cluster + Online Boutique. Only Docker is required.
+# One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -30,10 +30,22 @@ else
   k3d cluster create --config cluster/k3d-config.yaml
 fi
 
-kubectl apply -f "https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/$APP_VERSION/release/kubernetes-manifests.yaml"
+# Linkerd generates new certificates on every install, so it must only ever run once per cluster
+if kubectl get deployment linkerd-destination -n linkerd >/dev/null 2>&1; then
+  echo ">> Linkerd already installed, reusing it"
+else
+  echo ">> Installing Linkerd"
+  kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml"
+  linkerd install --crds | kubectl apply -f -
+  linkerd install | kubectl apply -f -
+  linkerd check
+fi
+
+# --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
+echo ">> Deploying Online Boutique with Linkerd proxies"
+linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f -
 echo ">> Waiting for pods (can take a few minutes)"
 kubectl wait --for=condition=available deployment --all --timeout=600s
 kubectl get pods
 
-echo ">> Done. Shop at http://localhost:8081 (Ctrl+C to stop port-forward)"
-kubectl port-forward svc/frontend 8081:80
+echo ">> Done. Shop at http://localhost:8080"
