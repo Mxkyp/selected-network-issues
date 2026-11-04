@@ -1,0 +1,10 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: sina
+servers: 1
+agents: 2
+ports:
+  - port: 8080:80          # localhost:8080 -> cluster load balancer (for a later Ingress)
+    nodeFilters:
+      - loadbalancer
