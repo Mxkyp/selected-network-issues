@@ -5,6 +5,8 @@ cd "$(dirname "$0")"
 
 K3D_VERSION=v5.9.0
 KUBECTL_VERSION=v1.37.2
+LINKERD_VERSION=edge-26.11.1
+GATEWAY_API_VERSION=v1.2.1
 APP_VERSION=v0.10.7
 TOOLS="$PWD/.tools"; mkdir -p "$TOOLS"; export PATH="$TOOLS:$PATH"
 
@@ -22,6 +24,13 @@ if ! command -v kubectl >/dev/null; then
   echo ">> Downloading kubectl $KUBECTL_VERSION"
   curl -fsSL -o "$TOOLS/kubectl" "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/$os/$arch/kubectl"
   chmod +x "$TOOLS/kubectl"
+fi
+if ! command -v linkerd >/dev/null; then
+  echo ">> Downloading linkerd $LINKERD_VERSION"
+  # The macOS Intel build has no architecture in its name
+  case "$os-$arch" in darwin-amd64) suffix=darwin;; *) suffix="$os-$arch";; esac
+  curl -fsSL -o "$TOOLS/linkerd" "https://github.com/linkerd/linkerd2/releases/download/$LINKERD_VERSION/linkerd2-cli-$LINKERD_VERSION-$suffix"
+  chmod +x "$TOOLS/linkerd"
 fi
 
 if k3d cluster list sina >/dev/null 2>&1; then

@@ -15,6 +15,14 @@ function Test-Command([scriptblock]$Command) {
   $LASTEXITCODE -eq 0
 }
 
+# A native pipeline only reports the last command's exit code, so generate and apply in two steps
+function Install-Manifests([scriptblock]$Generate, [string]$Name) {
+  $manifests = & $Generate
+  if ($LASTEXITCODE -ne 0) { throw "Generating $Name failed" }
+  $manifests | kubectl apply -f -
+  if ($LASTEXITCODE -ne 0) { throw "Applying $Name failed" }
+}
+
 if (-not (Test-Command { docker info })) { throw 'Docker is not installed or not running (start Docker Desktop).' }
 
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
@@ -45,15 +53,16 @@ if (Test-Command { kubectl get deployment linkerd-destination -n linkerd }) {
 } else {
   Write-Host '>> Installing Linkerd'
   kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GatewayApiVersion/standard-install.yaml"
-  linkerd install --crds | kubectl apply -f -
-  linkerd install | kubectl apply -f -
+  if ($LASTEXITCODE -ne 0) { throw 'Applying Gateway API CRDs failed' }
+  Install-Manifests { linkerd install --crds } 'Linkerd CRDs'
+  Install-Manifests { linkerd install } 'Linkerd control plane'
   linkerd check
   if ($LASTEXITCODE -ne 0) { throw 'Linkerd is not healthy' }
 }
 
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 Write-Host '>> Deploying Online Boutique with Linkerd proxies'
-linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f -
+Install-Manifests { linkerd inject --native-sidecar app/kubernetes-manifests.yaml } 'Online Boutique'
 Write-Host '>> Waiting for pods (can take a few minutes)'
 kubectl wait --for=condition=available deployment --all --timeout=600s
 if ($LASTEXITCODE -ne 0) { throw 'Some deployments did not become available' }
