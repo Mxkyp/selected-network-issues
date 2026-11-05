@@ -8,3 +8,9 @@ ports:
   - port: 8080:80          # localhost:8080 -> cluster load balancer (for a later Ingress)
     nodeFilters:
       - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik   # its CRD chart clashes with the Gateway API CRDs that Linkerd needs
+        nodeFilters:
+          - server:*

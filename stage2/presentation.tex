@@ -261,8 +261,8 @@ deadline.}
 powershell -File .\setup.ps1  # Windows
 \end{lstlisting}
         \begin{itemize}\setlength{\itemsep}{2pt}
-          \item Only Docker needed; k3d v5.9.0 and kubectl v1.37.2 land in \texttt{./.tools/}
-          \item Safe to re-run; shop at \texttt{localhost:8081}
+          \item Only Docker needed; k3d v5.9.0, kubectl v1.37.2 and Linkerd edge-26.11.1 land in \texttt{./.tools/}
+          \item Safe to re-run; shop at \texttt{localhost:8080}
         \end{itemize}
       \end{block}
     \end{column}
@@ -286,31 +286,30 @@ checkoutservice-7c546c97fb-g4d2z         1/1     Running   0          47s
 frontend-96b686b67-psvgp                 1/1     Running   0          47s
 paymentservice-9698c4f8d-fccxd           1/1     Running   0          46s
 # ... 12 pods in total, all 1/1 Running: one container each, no proxy yet
->> Done. Shop at http://localhost:8081 (Ctrl+C to stop port-forward)
-Forwarding from 127.0.0.1:8081 -> 8080
 \end{lstlisting}
 \end{frame}
-\note{Mikołaj. This is a fresh run on my machine: the cluster was up after 27
-seconds, and all 12 pods were Running less than a minute after that. We
+\note{Mikołaj. This is a fresh run on my machine from before we added the
+mesh: the cluster was up after 27 seconds, and all 12 pods were Running less
+than a minute after that. We
 pinned every version so all four of us run exactly the same thing, no matter
 what's installed locally, and it needs no admin rights. Point at the READY
-column: every pod is 1/1, one container. After step 2 the same command shows
-2/2, because each pod gets its Linkerd proxy. The README also covers the
-failures we expect: pods stuck Pending when Docker has too little memory,
+column: every pod is 1/1, one container. Now that step 2 is in the script, the
+same command ends with 2/2, because each pod gets its Linkerd proxy. The README
+also covers the failures we expect: pods stuck Pending when Docker has too little memory,
 WSL2 on Windows, and Podman instead of Docker on Linux.}
 
 \begin{frame}{Step 1: the shop, running locally}
   \centering
-  \evidence{00-shop.png}{\textwidth}{6.2cm}{Online Boutique at \texttt{localhost:8081}}
+  \evidence{00-shop.png}{\textwidth}{6.2cm}{Online Boutique at \texttt{localhost:8080}}
 
   \vspace{4pt}
-  {\small Online Boutique on our k3d cluster: 12 pods, no mesh yet, every call between them in plaintext}
+  {\small Online Boutique on our k3d cluster: 12 pods. Without the mesh, every call between them is plaintext}
 \end{frame}
-\note{Mikołaj. This is what the script ends with: the shop at localhost:8081,
-served by the frontend through the port-forward. Everything works, and right
-now every request it makes behind the scenes, from the cart to checkout to
-payment, crosses the cluster in plaintext. That's the starting point for
-Jędrzej's part.}
+\note{Mikołaj. This is what the script ends with: the shop at localhost:8080,
+served by the frontend through the k3d load balancer. In step 1, with no mesh,
+every request it makes behind the scenes, from the cart to checkout to payment,
+crossed the cluster in plaintext. That's the starting point for Jędrzej's
+part.}
 
 \begin{frame}{Step 2: is the traffic encrypted?}
   \begin{columns}[T,onlytextwidth]
@@ -326,10 +325,10 @@ Jędrzej's part.}
     \end{column}
   \end{columns}
 \end{frame}
-\note{Jędrzej. Linkerd \todo{version} installed with \todo{CLI/Helm},
-injected into the default namespace, deployments restarted so every pod picks
-up its proxy. Edges shows every service-to-service connection as secured; tap
-shows individual live requests from checkout to payment, each one marked
+\note{Jędrzej. Linkerd edge-26.11.1, installed with the CLI by our setup
+scripts, which also deploy the shop through linkerd inject, so every pod starts
+with its proxy. Edges shows all 16 service-to-service connections as secured;
+tap shows individual live requests from checkout to payment, each one marked
 tls=true.}
 
 \begin{frame}{Same request, before and after}
@@ -348,8 +347,10 @@ tls=true.}
 \end{frame}
 \note{Jędrzej. We took paymentservice out of the mesh and captured its
 traffic from the node. Without the proxy you can read the request contents
-straight off the wire \todo{say what you actually saw}. Put it back in the
-mesh, run the same capture, and it's just TLS. No code changed between the
+straight off the wire: the test card number and the currency, in all five test
+orders. Put it back in the mesh, run the same capture with five more orders, and
+neither string shows up anywhere: it's unreadable traffic between the proxies
+on port 4143. No code changed between the
 two screenshots, only one annotation.}
 
 \begin{frame}{What surprised us}
@@ -360,18 +361,20 @@ two screenshots, only one annotation.}
   \end{alertblock}
   \begin{block}{Smaller lessons}
     \begin{itemize}\setlength{\itemsep}{2pt}
-      \item Injection only happens when a pod starts, so existing deployments need a restart
+      \item Traefik, on by default in k3s, clashes with the Gateway API CRDs Linkerd needs, so we disabled it
       \item Showing encryption took more work than turning it on: distroless images,
         \texttt{runAsNonRoot}, so we captured from the node
-      \item \todo{one more real issue from the team}
+      \item A full system drive hung Docker Desktop, and the setup script with it
     \end{itemize}
   \end{block}
 \end{frame}
 \note{Jędrzej. The first point is the big one. After step 2 an attacker can't
 read the traffic anymore, but they can still send requests to payments,
-because the default inbound policy is all-unauthenticated. So we fixed
-eavesdropping and impersonation, and lateral movement is still open. On
-proving it: the app images have no shell, and they refuse root containers,
+because the default inbound policy is all-unauthenticated. We tested it with
+a pod outside the mesh and a pod using the adservice identity, and both reached
+payment and cart. So we fixed eavesdropping and impersonation, and lateral
+movement is still open. On proving it: the app images have no shell, and they
+refuse root containers,
 so we had to capture from the node. Capture inside the pod and you'd see
 plaintext anyway on loopback, between the app and its own proxy.}
 
@@ -429,14 +432,16 @@ reaching it.}
       \item The attack from step 5 should show up on it live
     \end{itemize}
   \end{block}
-  \begin{alertblock}{Open decision}
-    \todo{Kacper: our own Prometheus or the one bundled with linkerd-viz?}
-  \end{alertblock}
+  \begin{block}{Plan}
+    Start with the Prometheus bundled with \texttt{linkerd-viz} and add Grafana;
+    move to a separate Prometheus if it limits us
+  \end{block}
 \end{frame}
 \note{Kacper. linkerd-viz ships its own Prometheus, but it's meant for demos
 and keeps only a few hours of data, and Grafana stopped being bundled with
-Linkerd a while ago. So step 4 is mostly a decision about where metrics live,
-plus building one dashboard that makes the attack obvious.}
+Linkerd a while ago. We'll start with that bundled Prometheus and add Grafana,
+and move to a separate Prometheus if it limits us. So step 4 is mostly about
+building one dashboard that makes the attack obvious.}
 
 % =============================================================================
 % Closing
@@ -448,9 +453,6 @@ plus building one dashboard that makes the attack obvious.}
     {\LARGE \textbf{Thank you}}\\[8pt]
     {\large Questions?}
   \end{beamercolorbox}
-  \vspace{12pt}
-
-  {\small Repo: \todo{link}}
 \end{frame}
 \note{Everyone. Backup: have the cluster running on one laptop in case
 someone asks to see tap live.}

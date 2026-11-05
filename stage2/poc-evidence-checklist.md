@@ -54,9 +54,11 @@ Save the output as `06-before.txt`. Look for readable strings in the payload (ca
 
 **After (put it back):**
 
+The setup scripts add `linkerd.io/inject: enabled` to the pod template and the namespace has no annotation, so set it back to `enabled` instead of removing it.
+
 ```bash
-kubectl patch deploy paymentservice --type=json -p \
-  '[{"op":"remove","path":"/spec/template/metadata/annotations/linkerd.io~1inject"}]'
+kubectl patch deploy paymentservice -p \
+  '{"spec":{"template":{"metadata":{"annotations":{"linkerd.io/inject":"enabled"}}}}}'
 kubectl rollout status deploy/paymentservice
 kubectl get pod -l app=paymentservice -o wide      # 2/2 again, note the new IP/node
 ```

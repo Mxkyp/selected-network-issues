@@ -1,0 +1,8 @@
+# Run from each test pod, with policies off, for both targets listed below:
+# $ kubectl exec <pod> -c curl -- sh -c "printf '\000\000\000\000\000' | curl -s -m 8 -o /dev/null -D - --http2-prior-knowledge -X POST -H 'content-type: application/grpc' -H 'te: trailers' --data-binary @- http://<target>"
+# attacker-outside: plain curl pod, not in the mesh
+# attacker-as-adservice: meshed curl pod running under the adservice ServiceAccount
+attacker-outside         -> paymentservice:50051/hipstershop.PaymentService/Charge         HTTP/2 200  grpc-status: 2 grpc-message: Cannot%20read%20properties%20of%20null%20(reading%20'credit_card_number') 
+attacker-outside         -> cartservice:7070/hipstershop.CartService/GetCart               HTTP/2 200  grpc-status: 0 
+attacker-as-adservice    -> paymentservice:50051/hipstershop.PaymentService/Charge         HTTP/2 200  grpc-status: 2 grpc-message: Cannot%20read%20properties%20of%20null%20(reading%20'credit_card_number') 
+attacker-as-adservice    -> cartservice:7070/hipstershop.CartService/GetCart               HTTP/2 200  grpc-status: 0 
