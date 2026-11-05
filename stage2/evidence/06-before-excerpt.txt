@@ -1,0 +1,9 @@
+# paymentservice OUTSIDE the mesh (1/1): checkout -> payment Charge call, port 50051
+20:02:34.002844 cni0  Out IP 10.42.2.13.38366 > 10.42.0.16.50051: Flags [P.], seq 43:100, ack 1, win 64, length 57
+E..m+.@.>..H
+*.
+*......
+...:~?....@.......
+.A....=...0..........+
+.USD..........
+.4432801561520454...... .

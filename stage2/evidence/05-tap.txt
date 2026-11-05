@@ -1,0 +1,20 @@
+req id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=5699µs
+end id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=288µs response-length=0B
+req id=0:1 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:1 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=2606µs
+end id=0:1 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=333µs response-length=0B
+req id=0:2 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:2 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=3576µs
+end id=0:2 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=2472µs response-length=0B
+req id=0:3 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:3 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=3728µs
+end id=0:3 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=989µs response-length=0B
+req id=0:4 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:4 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=4784µs
+end id=0:4 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=359µs response-length=0B
+req id=0:5 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:5 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=3184µs
+end id=0:5 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=256µs response-length=0B
+req id=0:6 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:6 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=2244µs

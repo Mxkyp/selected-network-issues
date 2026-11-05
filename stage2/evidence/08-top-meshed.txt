@@ -1,0 +1,37 @@
+POD                                      NAME            CPU(cores)   MEMORY(bytes)   
+adservice-784b749f44-h2twz               linkerd-proxy   2m           3Mi             
+adservice-784b749f44-h2twz               server          6m           88Mi            
+cartservice-66844579-dz7mq               linkerd-proxy   3m           4Mi             
+cartservice-66844579-dz7mq               server          6m           42Mi            
+checkoutservice-554d7fbcd6-v8866         linkerd-proxy   3m           5Mi             
+checkoutservice-554d7fbcd6-v8866         server          2m           7Mi             
+currencyservice-69c5c8cc98-gpsgk         linkerd-proxy   7m           3Mi             
+currencyservice-69c5c8cc98-gpsgk         server          12m          33Mi            
+emailservice-68fbb57f7d-zdj74            linkerd-proxy   2m           3Mi             
+emailservice-68fbb57f7d-zdj74            server          2m           35Mi            
+frontend-b6ff97b4-d78n8                  linkerd-proxy   23m          6Mi             
+frontend-b6ff97b4-d78n8                  server          19m          10Mi            
+loadgenerator-5d6c47bb58-p4dcm           linkerd-proxy   4m           3Mi             
+loadgenerator-5d6c47bb58-p4dcm           main            5m           47Mi            
+paymentservice-6f7c4d6558-k5g8b          linkerd-proxy   1m           3Mi             
+paymentservice-6f7c4d6558-k5g8b          server          1m           22Mi            
+productcatalogservice-77bdbbfb9d-8mmnp   linkerd-proxy   10m          3Mi             
+productcatalogservice-77bdbbfb9d-8mmnp   server          9m           8Mi             
+recommendationservice-74774d7956-x2sbz   linkerd-proxy   4m           4Mi             
+recommendationservice-74774d7956-x2sbz   server          7m           31Mi            
+redis-cart-76cd8889c6-tx2th              linkerd-proxy   2m           3Mi             
+redis-cart-76cd8889c6-tx2th              redis           3m           5Mi             
+shippingservice-57794cdbf8-qrmb2         linkerd-proxy   2m           3Mi             
+shippingservice-57794cdbf8-qrmb2         server          1m           5Mi             
+
+NAME                                      CPU(cores)   MEMORY(bytes)   
+linkerd-destination-c674b8995-brcbz       7m           66Mi            
+linkerd-identity-666fbbc6cd-f64r2         2m           23Mi            
+linkerd-proxy-injector-86d6554879-fm4kb   2m           31Mi            
+
+NAME                            CPU(cores)   MEMORY(bytes)   
+metrics-api-6b574f7856-ccsbm    2m           29Mi            
+prometheus-7b779f467b-qzdh6     23m          158Mi           
+tap-b547fdb4c-8425w             2m           31Mi            
+tap-injector-5545c8848f-r8n7x   2m           25Mi            
+web-779d969b96-8nxql            2m           21Mi            
