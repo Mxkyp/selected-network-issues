@@ -1,0 +1,249 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{microtype}
+\input{common.tex}
+\usepackage[hidelinks]{hyperref}
+
+\titlelabel{\thetitle.\quad}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+% ---------------------------------------------------------------- title page
+\begin{titlepage}
+  \centering
+  {\large Lodz University of Technology\\
+  Faculty of Technical Physics, Information Technology and Applied Mathematics\\
+  Institute of Information Technology\par}
+  \vspace{1.5cm}
+  {\large Selected Issues of Network Applications\\2026/2027\par}
+  \vspace{3cm}
+  {\LARGE\bfseries Modern Service Mesh: a better way to secure communication
+  between microservices\par}
+  \vspace{1cm}
+  {\Large Stage 2 report: Proof of Concept\par}
+  \vspace{3cm}
+  {\large
+  Jędrzej Bartoszewski, 251482\\
+  Michał Domagała, 251505\\
+  Kacper Maziarz, 251586\\
+  Mikołaj Pawłoś, 258681\par}
+  \vfill
+\end{titlepage}
+
+The problem definition, the choice of tools and the functional requirements
+are unchanged from the stage 1 report. This report covers what we built
+during the Proof of Concept stage and what we learned while doing it.
+
+% ---------------------------------------------------------------- 1
+\section{Work progress to date}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{clll}
+    \toprule
+    \# & Step & Planned & Status \\
+    \midrule
+    1 & k3d cluster and Online Boutique      & Weeks 3--4                 & Done    \\
+    2 & Linkerd with mTLS (Proof of Concept) & Weeks 5--6, until 6.11.2026 & Done    \\
+    3 & Zero-Trust authorization policies    & Week 7                     & Next    \\
+    4 & Prometheus and Grafana               & Week 8                     & Planned \\
+    5 & Attack simulation                    & Week 9, until 27.11.2026    & Planned \\
+    \bottomrule
+  \end{tabular}
+  \caption{Schedule from the stage 1 report and the current status.}
+\end{table}
+
+We met the 6.11 deadline for both Proof of Concept steps, and the plan for
+steps 3--5 stays as it was.
+
+\subsection*{Step 1: cluster and test application}
+
+The whole environment comes up with one script: \texttt{setup.sh} on Linux
+and macOS, \texttt{setup.ps1} on Windows. Docker is the only thing a team
+member has to install. The script downloads pinned versions of k3d (v5.9.0)
+and kubectl (v1.37.2) into a local \texttt{.tools/} directory, so it needs no
+admin rights and ignores whatever versions happen to be installed
+system-wide. It then creates a k3d cluster named \texttt{sina} with one server
+and two agent nodes (\texttt{cluster/k3d-config.yaml}), applies the Online
+Boutique v0.10.7 release manifest, waits up to ten minutes for every
+deployment to become available and port-forwards the shop to
+\url{http://localhost:8081}.
+
+Re-running the script reuses the existing cluster, which means anyone can run
+it again after a failed attempt without cleaning up first. We also mapped
+host port 8080 to the k3d load balancer, unused for now, so a later Ingress
+needs no cluster rebuild. \texttt{cluster/README.md} lists the failures we
+expect people to hit: pods stuck in \texttt{Pending} or \texttt{OOMKilled}
+when Docker has too little memory, Docker Desktop without WSL2 integration on
+Windows, and Podman in place of Docker on Linux.
+
+On a fresh run the cluster was ready after 27 seconds, and all 12 pods
+reached \texttt{Running} less than a minute later, each with a single
+container (\texttt{1/1}), because nothing is meshed yet. Figure~\ref{fig:shop}
+shows the result.
+
+\begin{figure}[h]
+  \centering
+  \evidence{00-shop.png}{\linewidth}{7cm}{Online Boutique at \texttt{localhost:8081}}
+  \caption{Online Boutique running on the local k3d cluster after
+    \texttt{setup.sh}, reached through the port-forward on
+    \texttt{localhost:8081}.}
+  \label{fig:shop}
+\end{figure}
+
+\subsection*{Step 2: Linkerd and mutual TLS}
+
+\todo{Kacper: Linkerd version (\texttt{linkerd version}), install method (CLI
+or Helm), the exact commands, and where they live in the repo.}
+
+We installed the Linkerd CRDs and control plane, confirmed the installation
+with \texttt{linkerd check}, and enabled automatic proxy injection for the
+\texttt{default} namespace with the \texttt{linkerd.io/inject: enabled}
+annotation. Restarting the deployments then gave every Online Boutique pod a
+second container, the \texttt{linkerd-proxy} sidecar, which takes over the
+pod's inbound and outbound traffic. The application code and the manifests
+stayed untouched; the only change was one annotation on the namespace.
+
+We checked the result three ways.
+
+\begin{enumerate}[itemsep=2pt]
+  \item \texttt{linkerd viz edges} lists every connection between deployments
+    and whether it's secured (Figure~\ref{fig:edges}). \todo{State whether
+    every edge showed as secured; if some didn't, say which ones and why.}
+  \item \texttt{linkerd viz tap} streams individual live requests. Requests
+    from \texttt{checkoutservice} to \texttt{paymentservice} carry
+    \texttt{tls=true} (Figure~\ref{fig:tap}).
+  \item A packet capture of \texttt{paymentservice} traffic, taken once with
+    the service out of the mesh and once inside it
+    (Figure~\ref{fig:capture}). Without the proxy, \todo{what was readable in
+    the payload}. With the proxy, the same capture shows only TLS records.
+\end{enumerate}
+
+The third check is the one we'll reuse in the final demo, because it shows
+the difference to anyone, Kubernetes background or not.
+
+\begin{figure}[p]
+  \centering
+  \evidence{04-edges.png}{\linewidth}{6cm}{\texttt{linkerd viz edges deploy -n default}}
+  \caption{Connections between Online Boutique deployments as reported by
+    \texttt{linkerd viz edges}.}
+  \label{fig:edges}
+
+  \vspace{1em}
+  \evidence{05-tap.png}{\linewidth}{6cm}{\texttt{linkerd viz tap} from checkout to payment}
+  \caption{Live requests from \texttt{checkoutservice} to
+    \texttt{paymentservice}, each marked \texttt{tls=true}.}
+  \label{fig:tap}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \evidence{06-before.png}{\linewidth}{8cm}{tcpdump, \texttt{paymentservice} outside the mesh}
+
+  \vspace{1em}
+  \evidence{07-after.png}{\linewidth}{8cm}{tcpdump, \texttt{paymentservice} inside the mesh}
+  \caption{The same capture of \texttt{paymentservice} traffic, taken from the
+    node, without (top) and with (bottom) the Linkerd proxy.}
+  \label{fig:capture}
+\end{figure}
+
+% ---------------------------------------------------------------- 2
+\section{Insights and challenges}
+
+\subsection*{Encryption isn't access control}
+
+This is the most important thing we learned in the PoC stage, and it changes
+how we present the project. After step 2, every connection between meshed
+services runs over mutual TLS, and each proxy knows the identity of its
+caller, derived from the caller's Kubernetes ServiceAccount (Online Boutique
+gives each of its 11 services its own). That stops eavesdropping and
+impersonation.
+
+It doesn't stop lateral movement. Linkerd's default inbound policy is
+\texttt{all-unauthenticated}, so a meshed service still accepts requests from
+any other meshed service and even from a pod outside the mesh speaking
+plaintext. An attacker who controls \texttt{adservice} can't read the traffic
+between checkout and payments anymore, but can still call
+\texttt{paymentservice} directly and get an answer. \todo{confirm with a quick
+test from a plain \texttt{kubectl run} pod, if time allows.} Closing that gap
+is exactly what step 3 is for, and the schedule already has it in the right
+order; we just hadn't appreciated how big that gap would look on a slide
+until we had mTLS running.
+
+\subsection*{Injection happens at pod start}
+
+The namespace annotation only affects pods created after it's set. Pods that
+were already running keep working without a proxy until their deployment
+restarts, and the app works fine either way, so nothing tells you that half
+the mesh is missing. \texttt{kubectl get pods} (2/2 containers instead of
+1/1) and \texttt{linkerd check --proxy} both catch it. \todo{say whether we
+actually ran into this, or drop the subsection.}
+
+\subsection*{Proving encryption took more effort than enabling it}
+
+Turning on mTLS took a few commands. Showing it to someone else took longer.
+Online Boutique images are distroless, with no shell and no tcpdump, and the
+pods set \texttt{runAsNonRoot: true}, which blocks the usual trick of
+attaching a root debug container. We captured from the node instead, using
+\texttt{kubectl debug node/\ldots{} --profile=sysadmin}.
+
+That route has a second advantage. Inside a meshed pod, the hop from the
+application to its own proxy goes over loopback and stays plaintext; a
+capture there would show readable traffic and look as if mTLS had failed.
+From the node you only see what leaves the pod, which is the traffic an
+attacker could reach.
+
+\subsection*{Linkerd's release model}
+
+Since Linkerd 2.15 (February 2024), the open-source project publishes only
+edge releases, and stable builds come from Buoyant, the company behind
+Linkerd. We used edge release \todo{version}. For a student project that's
+fine, but edge releases can change behaviour between versions, so we'll pin
+the version in our setup scripts the same way we pinned k3d and kubectl.
+
+\subsection*{Resource cost}
+
+Each of the \todo{number} application pods now runs an extra proxy
+container, plus the Linkerd control plane and the viz extension.
+\todo{memory used by the proxies and the control plane, from \texttt{kubectl
+top pods --containers} and \texttt{kubectl top pods -n linkerd}.}
+\todo{did anyone's laptop struggle? If yes, how much memory did Docker need?}
+
+\todo{any other real problem from the team's notes, e.g.\ something specific
+to Windows or Podman. Drop this line if there's nothing.}
+
+% ---------------------------------------------------------------- 3
+\section{Impact on the next steps}
+
+\textbf{Step 3 (Michał).} We'll switch the namespace to a default-deny
+inbound policy and then allow only the calls Online Boutique actually makes,
+written as Linkerd \texttt{Server}, \texttt{AuthorizationPolicy} and
+\texttt{MeshTLSAuthentication} resources against the per-service identities.
+\texttt{paymentservice}, for example, will accept only the
+\texttt{checkoutservice} identity. Two things have to keep working: the
+frontend receives traffic from outside the mesh, and the loadgenerator must
+still reach it.
+
+\textbf{Step 4 (Kacper).} \texttt{linkerd-viz} comes with its own Prometheus,
+but that instance is meant for short-term data, and Linkerd no longer bundles
+Grafana. We need to decide whether to run a separate Prometheus that scrapes
+the proxies or to build on the bundled one. \todo{Kacper: decision.} Either
+way, the goal is one Grafana dashboard where the step 5 attack shows up as
+denied requests.
+
+\textbf{Step 5 (Michał).} We'll run the same attack twice, once from a pod
+outside the mesh and once from inside a compromised \texttt{adservice}, both
+calling \texttt{paymentservice}. Before step 3 both calls succeed; afterwards
+both should fail with gRPC \texttt{PermissionDenied}.
+
+\end{document}
