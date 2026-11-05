@@ -1,3 +1,4 @@
+# $ linkerd check
 kubernetes-api
 --------------
 √ can initialize the client

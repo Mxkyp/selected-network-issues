@@ -1,3 +1,4 @@
+# $ linkerd viz tap deploy/checkoutservice --to deploy/paymentservice | head -20
 req id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
 rsp id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true :status=200 latency=5699µs
 end id=0:0 proxy=out src=10.42.2.13:37546 dst=10.42.1.15:50051 tls=true grpc-status=OK duration=288µs response-length=0B

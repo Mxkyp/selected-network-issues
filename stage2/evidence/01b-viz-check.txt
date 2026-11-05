@@ -1,3 +1,4 @@
+# $ linkerd viz check
 linkerd-viz
 -----------
 √ linkerd-viz Namespace exists

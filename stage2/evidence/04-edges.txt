@@ -1,3 +1,4 @@
+# $ linkerd viz edges deploy -n default
 SRC                     DST                     SRC_NS        DST_NS    SECURED
 cartservice             redis-cart              default       default   √      
 checkoutservice         cartservice             default       default   √      

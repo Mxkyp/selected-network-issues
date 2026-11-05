@@ -1,3 +1,4 @@
+# $ kubectl get pods
 NAME                                     READY   STATUS    RESTARTS      AGE
 adservice-784b749f44-h2twz               2/2     Running   0             101s
 cartservice-66844579-dz7mq               2/2     Running   0             101s

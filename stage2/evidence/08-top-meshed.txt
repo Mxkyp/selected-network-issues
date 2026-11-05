@@ -1,3 +1,6 @@
+# $ kubectl top pods --containers
+# $ kubectl top pods -n linkerd
+# $ kubectl top pods -n linkerd-viz
 POD                                      NAME            CPU(cores)   MEMORY(bytes)   
 adservice-784b749f44-h2twz               linkerd-proxy   2m           3Mi             
 adservice-784b749f44-h2twz               server          6m           88Mi            
