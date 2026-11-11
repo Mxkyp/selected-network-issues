@@ -3,19 +3,24 @@
 #   hipstershop.CurrencyService/GetSupportedCurrencies   <- frontend
 #   grpc.health.v1.Health/Check                          <- kubelet probes
 # Everything else is denied: a request matching no route below is rejected by the proxy.
-apiVersion: policy.linkerd.io/v1beta3
-kind: Server
+# The Server comes last on purpose: when it appears, its routes and authorizations already
+# exist, so applying this file never leaves the port without its policy.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
 metadata:
-  name: currencyservice
+  name: currencyservice-health
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
 spec:
-  podSelector:
-    matchLabels:
-      app: currencyservice
-  port: 7000
-  proxyProtocol: gRPC
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: currencyservice-health
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -38,7 +43,7 @@ spec:
 apiVersion: policy.linkerd.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: currencyservice-health
+  name: currencyservice-convert
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
@@ -46,11 +51,11 @@ spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: GRPCRoute
-    name: currencyservice-health
+    name: currencyservice-convert
   requiredAuthenticationRefs:
   - group: policy.linkerd.io
-    kind: NetworkAuthentication
-    name: kubelet-probes
+    kind: MeshTLSAuthentication
+    name: callers-frontend-checkout
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -73,7 +78,7 @@ spec:
 apiVersion: policy.linkerd.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: currencyservice-convert
+  name: currencyservice-supported
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
@@ -81,11 +86,11 @@ spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: GRPCRoute
-    name: currencyservice-convert
+    name: currencyservice-supported
   requiredAuthenticationRefs:
   - group: policy.linkerd.io
     kind: MeshTLSAuthentication
-    name: callers-frontend-checkout
+    name: callers-frontend
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -105,19 +110,16 @@ spec:
         service: hipstershop.CurrencyService
         method: GetSupportedCurrencies
 ---
-apiVersion: policy.linkerd.io/v1alpha1
-kind: AuthorizationPolicy
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
 metadata:
-  name: currencyservice-supported
+  name: currencyservice
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: GRPCRoute
-    name: currencyservice-supported
-  requiredAuthenticationRefs:
-  - group: policy.linkerd.io
-    kind: MeshTLSAuthentication
-    name: callers-frontend
+  podSelector:
+    matchLabels:
+      app: currencyservice
+  port: 7000
+  proxyProtocol: gRPC

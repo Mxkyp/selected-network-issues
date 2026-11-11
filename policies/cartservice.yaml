@@ -4,19 +4,24 @@
 #   hipstershop.CartService/AddItem     <- frontend
 #   grpc.health.v1.Health/Check         <- kubelet probes
 # Everything else is denied: a request matching no route below is rejected by the proxy.
-apiVersion: policy.linkerd.io/v1beta3
-kind: Server
+# The Server comes last on purpose: when it appears, its routes and authorizations already
+# exist, so applying this file never leaves the port without its policy.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
 metadata:
-  name: cartservice
+  name: cartservice-health
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
 spec:
-  podSelector:
-    matchLabels:
-      app: cartservice
-  port: 7070
-  proxyProtocol: gRPC
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: cartservice-health
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -39,7 +44,7 @@ spec:
 apiVersion: policy.linkerd.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: cartservice-health
+  name: cartservice-read
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
@@ -47,11 +52,11 @@ spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: GRPCRoute
-    name: cartservice-health
+    name: cartservice-read
   requiredAuthenticationRefs:
   - group: policy.linkerd.io
-    kind: NetworkAuthentication
-    name: kubelet-probes
+    kind: MeshTLSAuthentication
+    name: callers-frontend-checkout
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -77,7 +82,7 @@ spec:
 apiVersion: policy.linkerd.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
-  name: cartservice-read
+  name: cartservice-additem
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
@@ -85,11 +90,11 @@ spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: GRPCRoute
-    name: cartservice-read
+    name: cartservice-additem
   requiredAuthenticationRefs:
   - group: policy.linkerd.io
     kind: MeshTLSAuthentication
-    name: callers-frontend-checkout
+    name: callers-frontend
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
@@ -109,19 +114,16 @@ spec:
         service: hipstershop.CartService
         method: AddItem
 ---
-apiVersion: policy.linkerd.io/v1alpha1
-kind: AuthorizationPolicy
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
 metadata:
-  name: cartservice-additem
+  name: cartservice
   namespace: default
   labels:
     app.kubernetes.io/part-of: zero-trust-policies
 spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: GRPCRoute
-    name: cartservice-additem
-  requiredAuthenticationRefs:
-  - group: policy.linkerd.io
-    kind: MeshTLSAuthentication
-    name: callers-frontend
+  podSelector:
+    matchLabels:
+      app: cartservice
+  port: 7070
+  proxyProtocol: gRPC

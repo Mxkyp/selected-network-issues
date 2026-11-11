@@ -3,20 +3,8 @@
 # the whole connection:
 #   cartservice     may connect
 #   kubelet probes  may connect (authorized so that they do not show up as denials)
-apiVersion: policy.linkerd.io/v1beta3
-kind: Server
-metadata:
-  name: redis-cart
-  namespace: default
-  labels:
-    app.kubernetes.io/part-of: zero-trust-policies
-spec:
-  podSelector:
-    matchLabels:
-      app: redis-cart
-  port: 6379
-  proxyProtocol: opaque
----
+# The Server comes last on purpose: when it appears, its routes and authorizations already
+# exist, so applying this file never leaves the port without its policy.
 apiVersion: policy.linkerd.io/v1alpha1
 kind: AuthorizationPolicy
 metadata:
@@ -50,3 +38,17 @@ spec:
   - group: policy.linkerd.io
     kind: NetworkAuthentication
     name: kubelet-probes
+---
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: redis-cart
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-cart
+  port: 6379
+  proxyProtocol: opaque

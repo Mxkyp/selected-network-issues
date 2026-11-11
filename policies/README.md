@@ -68,11 +68,33 @@ shown before and after. From the repo root:
 
 ```bash
 export PATH="$PWD/.tools:$PATH"
-kubectl apply -f policies/      # protect
-kubectl delete -f policies/     # back to the unprotected state
+
+# protect
+kubectl apply -f policies/
+
+# back to the unprotected state
+kubectl delete server,grpcroute,authorizationpolicy,meshtlsauthentication,networkauthentication \
+  -l app.kubernetes.io/part-of=zero-trust-policies
 ```
 
 Both take effect within a few seconds and restart nothing.
+
+The order of objects matters, because a `Server` without its authorizations denies
+everything on its port:
+
+- In every file the `Server` is the last object, so `kubectl apply` creates the routes
+  and authorizations first.
+- The delete command lists `server` first for the same reason. Do not use
+  `kubectl delete -f policies/`: it would remove the authorizations before the
+  `Server`s and the shop would answer with errors for a moment.
+
+With this order no request from a legitimate caller was denied while applying or
+removing the policies. A single kubelet probe can still fail during an apply; one
+failed probe does not restart a pod.
+
+Re-running `kubectl apply -f policies/` prints `configured` for the `GRPCRoute` objects
+every time. Nothing changes in the cluster (their generation stays the same); it is
+only how `kubectl` compares routes.
 
 ## Verify
 
@@ -86,6 +108,16 @@ attack/verify.sh --expect-open           # without policies: attacks reach the s
 meshed pod with the `adservice` identity, tries the methods the `frontend` identity must
 not reach, places a real order through the shop and checks that no pod restarted. It
 exits non-zero if any case fails. On Windows run it from Git Bash or WSL.
+
+## Namespace default-deny (not enabled yet)
+
+The policies above cover every application port. Ports without a `Server` still use
+Linkerd's default policy, `all-unauthenticated`. In practice that is the proxy admin
+port 4191, where any pod can read a service's traffic metrics.
+
+Closing it means setting `config.linkerd.io/default-inbound-policy: deny` on the
+namespace and explicitly allowing the metrics scraper. That depends on which
+Prometheus step 4 uses, so it is left for after that decision.
 
 ## Assumptions
 
