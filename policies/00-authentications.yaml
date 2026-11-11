@@ -1,0 +1,110 @@
+# Shared authentications used by the per-service policies in this directory.
+#
+# A MeshTLSAuthentication answers "who is calling": it matches the mTLS identity of the
+# client, which Linkerd derives from the client's ServiceAccount.
+# A NetworkAuthentication matches the client's IP address instead and is used only for
+# callers that have no mesh identity (the kubelet, users coming through the load balancer).
+#
+# All authentications listed in one AuthorizationPolicy must match (AND), so every
+# distinct set of allowed callers ("frontend or checkoutservice") is its own object here.
+---
+# Only the frontend.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: callers-frontend
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  identityRefs:
+  - kind: ServiceAccount
+    name: frontend
+---
+# Only the checkout service.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: callers-checkout
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  identityRefs:
+  - kind: ServiceAccount
+    name: checkoutservice
+---
+# The frontend or the checkout service.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: callers-frontend-checkout
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  identityRefs:
+  - kind: ServiceAccount
+    name: frontend
+  - kind: ServiceAccount
+    name: checkoutservice
+---
+# The frontend or the recommendation service.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: callers-frontend-recommendation
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  identityRefs:
+  - kind: ServiceAccount
+    name: frontend
+  - kind: ServiceAccount
+    name: recommendationservice
+---
+# Only the cart service (used by redis-cart).
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: callers-cart
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  identityRefs:
+  - kind: ServiceAccount
+    name: cartservice
+---
+# Kubelet health probes. The kubelet has no mesh identity; its probes reach a pod from the
+# node's own address on the pod network (the .1 address of the node's pod CIDR).
+# These three addresses match the three nodes created by cluster/k3d-config.yaml
+# (1 server + 2 agents). If the node count changes, add the new node's 10.42.<n>.1 here,
+# otherwise pods on that node fail their probes and never become Ready.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: NetworkAuthentication
+metadata:
+  name: kubelet-probes
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  networks:
+  - cidr: 10.42.0.1/32
+  - cidr: 10.42.1.1/32
+  - cidr: 10.42.2.1/32
+---
+# Any client, with or without a mesh identity. Used only by the frontend, which is the
+# public entry point of the shop.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: NetworkAuthentication
+metadata:
+  name: any-network
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  networks:
+  - cidr: 0.0.0.0/0
+  - cidr: ::/0
