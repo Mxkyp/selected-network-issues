@@ -15,7 +15,7 @@ When it finishes, open http://localhost:8080.
 Tear down: `.tools/k3d cluster delete sina` (Windows: `.tools\k3d.exe cluster delete sina`).
 
 ## Checking the mesh
-All traffic between services is encrypted and authenticated with mTLS. There are no Authorization Policies yet, so any caller is still allowed.
+All traffic between services is encrypted and authenticated with mTLS. The setup script stops there on purpose: no Authorization Policies are applied, so any caller is still allowed. The policies that close this gap, and the commands to apply and verify them, are in [`policies/README.md`](../policies/README.md).
 
 ```bash
 .tools/linkerd check --proxy
@@ -26,6 +26,7 @@ Requests with `tls="true"` and `client_id="checkoutservice..."` are mTLS traffic
 
 ## Troubleshooting
 - Pods `Pending`/`OOMKilled`: raise Docker memory.
+- Host becomes very slow, `kubectl` times out and pods restart in a loop after installing `linkerd-viz` or restarting several deployments: the Docker VM is swapping. 4 GB is the bare minimum for the shop alone; give Docker 6 GB or more when `linkerd-viz` is installed.
 - Pods stuck in `PodInitializing` or `ImagePullBackOff`: check free disk space on the host.
 - Windows: if Docker check fails, start Docker Desktop and enable WSL2 integration.
 - Podman instead of Docker (Linux): enable `podman.socket` and set `DOCKER_HOST`.
