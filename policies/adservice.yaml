@@ -1,0 +1,87 @@
+# adservice (gRPC, port 9555)
+#   hipstershop.AdService/GetAds   <- frontend
+#   grpc.health.v1.Health/Check    <- kubelet probes
+# Everything else is denied: a request matching no route below is rejected by the proxy.
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: adservice
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  podSelector:
+    matchLabels:
+      app: adservice
+  port: 9555
+  proxyProtocol: gRPC
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: adservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: adservice
+  rules:
+  - matches:
+    - method:
+        service: grpc.health.v1.Health
+        method: Check
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: adservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: adservice-health
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: adservice-getads
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: adservice
+  rules:
+  - matches:
+    - method:
+        service: hipstershop.AdService
+        method: GetAds
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: adservice-getads
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: adservice-getads
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: MeshTLSAuthentication
+    name: callers-frontend

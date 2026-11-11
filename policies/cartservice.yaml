@@ -1,0 +1,127 @@
+# cartservice (gRPC, port 7070)
+#   hipstershop.CartService/GetCart     <- frontend, checkoutservice
+#   hipstershop.CartService/EmptyCart   <- frontend, checkoutservice
+#   hipstershop.CartService/AddItem     <- frontend
+#   grpc.health.v1.Health/Check         <- kubelet probes
+# Everything else is denied: a request matching no route below is rejected by the proxy.
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: cartservice
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  podSelector:
+    matchLabels:
+      app: cartservice
+  port: 7070
+  proxyProtocol: gRPC
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: cartservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: cartservice
+  rules:
+  - matches:
+    - method:
+        service: grpc.health.v1.Health
+        method: Check
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: cartservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: cartservice-health
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: cartservice-read
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: cartservice
+  rules:
+  - matches:
+    - method:
+        service: hipstershop.CartService
+        method: GetCart
+    - method:
+        service: hipstershop.CartService
+        method: EmptyCart
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: cartservice-read
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: cartservice-read
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: MeshTLSAuthentication
+    name: callers-frontend-checkout
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: cartservice-additem
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: cartservice
+  rules:
+  - matches:
+    - method:
+        service: hipstershop.CartService
+        method: AddItem
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: cartservice-additem
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: cartservice-additem
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: MeshTLSAuthentication
+    name: callers-frontend
