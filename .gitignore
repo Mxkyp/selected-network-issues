@@ -2,3 +2,16 @@
 /.~lock.report-template.odt#
 /.tools/
 /stage2/build/
+
+# latexmk / LaTeX build output
+/stage*/*.aux
+/stage*/*.fdb_latexmk
+/stage*/*.fls
+/stage*/*.log
+/stage*/*.nav
+/stage*/*.out
+/stage*/*.snm
+/stage*/*.synctex.gz
+/stage*/*.toc
+/stage*/*.vrb
+/stage*/*.pdf
