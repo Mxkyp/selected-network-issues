@@ -26,6 +26,7 @@ Requests with `tls="true"` and `client_id="checkoutservice..."` are mTLS traffic
 
 ## Troubleshooting
 - Pods `Pending`/`OOMKilled`: raise Docker memory.
+- A pod shows `1/1` instead of `2/2` after the cluster was overloaded or restarted: it started while the Linkerd proxy injector was down, so it has no proxy and no identity, and the authorization policies treat it as an outsider. Delete the pod; its deployment recreates it with the proxy.
 - Host becomes very slow, `kubectl` times out and pods restart in a loop after installing `linkerd-viz` or restarting several deployments: the Docker VM is swapping. 4 GB is the bare minimum for the shop alone; give Docker 6 GB or more when `linkerd-viz` is installed.
 - Pods stuck in `PodInitializing` or `ImagePullBackOff`: check free disk space on the host.
 - Windows: if Docker check fails, start Docker Desktop and enable WSL2 integration.
