@@ -1,0 +1,159 @@
+# Robustness checks with the policies enforced (2026-11-24).
+#
+# 1. Cold start under enforcement: paymentservice, frontend and redis-cart restarted with the
+#    policies in place; all three became Ready again (probes pass from a cold start).
+# $ kubectl rollout restart deploy/paymentservice deploy/frontend deploy/redis-cart && attack/verify.sh
+Mode: enforced
+PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-outside -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-outside -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-outside -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-adservice -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-as-adservice -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-as-adservice -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-as-adservice -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-adservice -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-frontend -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-frontend -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-outside -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-adservice -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-frontend -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-frontend -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-outside -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-adservice -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-frontend -> redis-cart:6379 PING (no answer)
+PASS  shop: home page
+PASS  shop: add to cart
+PASS  shop: checkout (order confirmed)
+PASS  pods: all application pods are 2/2
+PASS  pods: no restarts during the run
+
+All cases passed.
+
+# 2. Removal: policies deleted by label (Servers first), cluster back to the open state.
+# $ kubectl delete server,grpcroute,authorizationpolicy,meshtlsauthentication,networkauthentication -l app.kubernetes.io/part-of=zero-trust-policies
+# $ attack/verify.sh --expect-open
+Mode: open
+PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (reached the application, grpc-status 0)
+PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (reached the application, grpc-status 0)
+PASS  attacker-outside -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (reached the application, grpc-status 13)
+PASS  attacker-outside -> paymentservice:50051/hipstershop.PaymentService/Charge (reached the application, grpc-status 2)
+PASS  attacker-outside -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (reached the application, grpc-status 0)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/GetCart (reached the application, grpc-status 0)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/EmptyCart (reached the application, grpc-status 0)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/AddItem (reached the application, grpc-status 2)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/Convert (reached the application, grpc-status 2)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (reached the application, grpc-status 0)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (reached the application, grpc-status 0)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (reached the application, grpc-status 5)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> adservice:9555/hipstershop.AdService/GetAds (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (reached the application, grpc-status 13)
+PASS  attacker-as-adservice -> paymentservice:50051/hipstershop.PaymentService/Charge (reached the application, grpc-status 2)
+PASS  attacker-as-adservice -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/GetCart (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/EmptyCart (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/AddItem (reached the application, grpc-status 2)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/Convert (reached the application, grpc-status 2)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (reached the application, grpc-status 5)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (reached the application, grpc-status 0)
+PASS  attacker-as-frontend -> paymentservice:50051/hipstershop.PaymentService/Charge (reached the application, grpc-status 2)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (reached the application, grpc-status 0)
+PASS  attacker-as-frontend -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (reached the application, grpc-status 0)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-outside -> paymentservice:50051/grpc.health.v1.Health/Check (reached the application, grpc-status 0)
+PASS  attacker-as-adservice -> paymentservice:50051/grpc.health.v1.Health/Check (reached the application, grpc-status 0)
+PASS  attacker-as-frontend -> paymentservice:50051/grpc.health.v1.Health/Check (reached the application, grpc-status 0)
+PASS  attacker-outside -> redis-cart:6379 PING (answered)
+PASS  attacker-as-adservice -> redis-cart:6379 PING (answered)
+PASS  attacker-as-frontend -> redis-cart:6379 PING (answered)
+PASS  shop: home page
+PASS  shop: add to cart
+PASS  shop: checkout (order confirmed)
+PASS  pods: all application pods are 2/2
+PASS  pods: no restarts during the run
+
+All cases passed.
+
+# 3. Re-applied.
+# $ kubectl apply -f policies/ && attack/verify.sh
+Mode: enforced
+PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-outside -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-outside -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-outside -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-adservice -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-as-adservice -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-as-adservice -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-as-adservice -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-adservice -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-frontend -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-frontend -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-outside -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-adservice -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-frontend -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-frontend -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-outside -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-adservice -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-frontend -> redis-cart:6379 PING (no answer)
+PASS  shop: home page
+PASS  shop: add to cart
+PASS  shop: checkout (order confirmed)
+PASS  pods: all application pods are 2/2
+PASS  pods: no restarts during the run
+
+All cases passed.
+
+# During removal and re-apply no request from a legitimate caller to a route it is allowed to use
+# was denied (proxy counters inbound_*_authz_deny_total compared before and after).
