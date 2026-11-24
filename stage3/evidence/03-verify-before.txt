@@ -1,4 +1,4 @@
-# $ attack/verify.sh --expect-open   (no policies applied)
+# $ attack/verify.sh --expect-open   (no policies applied; current version of the script)
 Mode: open
 PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (reached the application, grpc-status 0)
 PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (reached the application, grpc-status 0)

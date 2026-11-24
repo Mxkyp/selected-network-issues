@@ -55,9 +55,64 @@ check_status() {
     noroute) [ "$status" = 5 ] && pass "$name (no route)" || fail "$name" "grpc-status 5" "$status" ;;
     reached) case "$status" in
                7|none|"") fail "$name" "a reply from the application" "$status" ;;
+               # With policies, status 5 can also mean "no route found" in the proxy, i.e. a
+               # missing or broken route. Without policies it is the application's own NOT_FOUND.
+               5) if [ "$MODE" = enforced ]; then fail "$name" "a reply from the application" "5 ($msg)"
+                  else pass "$name (reached the application, grpc-status 5)"; fi ;;
                *) pass "$name (reached the application, grpc-status $status)" ;;
              esac ;;
   esac
+}
+
+# Allowed (route, caller) pairs from the allow-matrix, as the proxies label them.
+ALLOWED="
+paymentservice-charge:checkoutservice
+adservice-getads:frontend
+recommendationservice-list:frontend
+checkoutservice-placeorder:frontend
+emailservice-send:checkoutservice
+cartservice-read:frontend cartservice-read:checkoutservice
+cartservice-additem:frontend
+currencyservice-convert:frontend currencyservice-convert:checkoutservice
+currencyservice-supported:frontend
+shippingservice-quote:frontend shippingservice-quote:checkoutservice
+shippingservice-shiporder:checkoutservice
+productcatalogservice-getproduct:frontend productcatalogservice-getproduct:checkoutservice
+productcatalogservice-list:frontend productcatalogservice-list:recommendationservice
+redis-cart:cartservice
+"
+SERVERS="adservice recommendationservice checkoutservice paymentservice emailservice cartservice currencyservice shippingservice productcatalogservice frontend redis-cart"
+
+# legit_denials: prints "<key> <count>" for denials of legitimate callers, where key is
+#   <route>:<caller>           a caller denied on a route it is allowed to use
+#   <server>:noroute:<caller>  a caller that may use some route of the server, denied because its
+#                              request matched no route (a method missing from the policies)
+# Any identity denied by the frontend counts, since the frontend is open to everyone.
+# Counters are cumulative since the proxy started, so compare two snapshots.
+legit_denials() {
+  local s
+  for s in $SERVERS; do
+    linkerd diagnostics proxy-metrics -n default "deploy/$s" 2>/dev/null \
+      | grep -E '^inbound_(http|tcp)_authz_deny_total'
+  done | awk -v allowed="$ALLOWED" '
+    function label(name,   r) { r = ""; if (match($0, name "=\"[^\"]*\"")) r = substr($0, RSTART + length(name) + 2, RLENGTH - length(name) - 3); return r }
+    BEGIN {
+      n = split(allowed, a, /[ \n]+/)
+      for (i = 1; i <= n; i++) if (a[i] != "") {
+        ok[a[i]] = 1; split(a[i], p, ":"); srv = p[1]; sub(/-[a-z]+$/, "", srv); may[srv ":" p[2]] = 1
+      }
+    }
+    {
+      srv = label("srv_name"); route = label("route_name"); caller = label("client_id"); sub(/\..*/, "", caller)
+      if (caller == "") next
+      if (srv == "frontend")                                  key = "frontend:" caller
+      else if ($0 ~ /^inbound_tcp/) { if (ok[srv ":" caller]) key = srv ":" caller; else next }
+      else if (route == "default") { if (may[srv ":" caller]) key = srv ":noroute:" caller; else next }
+      else if (ok[route ":" caller])                           key = route ":" caller
+      else next
+      sum[key] += $NF
+    }
+    END { for (k in sum) print k, sum[k] }' | sort
 }
 
 restarts() { kubectl get pods -l 'app' -o jsonpath='{range .items[*]}{.metadata.name}={.status.containerStatuses[*].restartCount} {end}'; }
@@ -74,10 +129,27 @@ for pod in $ALL; do
     echo "Pre-flight failed: pod $pod is missing or not Ready. Run: kubectl apply -f attack/attackers.yaml" >&2
     exit 1
   fi
+  # Each attacker must have the identity it claims, otherwise the test proves nothing about it.
+  info=$(kubectl get pod "$pod" -o jsonpath='{.spec.serviceAccountName} {.spec.initContainers[*].name} {.spec.containers[*].name}')
+  sa=${info%% *}
+  case "$pod" in
+    attacker-outside) want_sa=default; want_proxy=no ;;
+    attacker-as-*)    want_sa=${pod#attacker-as-}; want_proxy=yes ;;
+  esac
+  case " $info " in *" linkerd-proxy "*) has_proxy=yes ;; *) has_proxy=no ;; esac
+  if [ "$sa" != "$want_sa" ] || [ "$has_proxy" != "$want_proxy" ]; then
+    echo "Pre-flight failed: pod $pod has ServiceAccount '$sa' and Linkerd proxy: $has_proxy; expected '$want_sa' and proxy: $want_proxy. Recreate it: kubectl delete pod $pod && kubectl apply -f attack/attackers.yaml" >&2
+    exit 1
+  fi
 done
+if [ "$MODE" = enforced ] && ! command -v linkerd >/dev/null; then
+  echo "Pre-flight failed: the linkerd CLI is needed to read the proxies' denial counters (run setup.sh once)." >&2
+  exit 1
+fi
 
 echo "Mode: $MODE"
 restarts_before=$(restarts)
+[ "$MODE" = enforced ] && denials_before=$(legit_denials)
 
 # ---- attacks ----------------------------------------------------------------
 if [ "$MODE" = enforced ]; then
@@ -127,6 +199,11 @@ fi
 # ---- pods stayed healthy ----------------------------------------------------
 not_ready=$(kubectl get pods -l 'app' --no-headers | awk '$2 != "2/2" {print $1 "(" $2 ")"}' | tr '\n' ' ')
 [ -z "$not_ready" ] && pass "pods: all application pods are 2/2" || fail "pods: readiness" "all 2/2" "$not_ready"
+if [ "$MODE" = enforced ]; then
+  # Covers every legitimate path the loadgenerator exercised during the run, not only the order above.
+  new=$(join -a 2 -e 0 -o 0,1.2,2.2 <(printf '%s\n' "$denials_before") <(legit_denials) | awk '$3 > $2 {print $1 " +" ($3 - $2)}' | tr '\n' ' ')
+  [ -z "$new" ] && pass "proxies: no allowed caller was denied during the run" || fail "proxies: allowed callers denied" "none" "$new"
+fi
 restarts_after=$(restarts)
 [ "$restarts_before" = "$restarts_after" ] && pass "pods: no restarts during the run" || fail "pods: restarts" "$restarts_before" "$restarts_after"
 
