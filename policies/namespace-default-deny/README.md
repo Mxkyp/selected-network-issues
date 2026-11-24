@@ -21,8 +21,9 @@ authorization refuses everything. The admin port then needs its own policy
 
 - **Install `linkerd-viz` first** if you use variant A below (the setup scripts do not
   install it): `linkerd viz install | kubectl apply -f -`, wait for `linkerd viz check`,
-  then re-run `./setup.sh` so that existing pods get the tap support. Without a scraper,
-  phase 2 still protects the port, but nothing collects the proxy metrics.
+  and only then enable phase 2: its pod restarts also give every pod the tap support
+  that `linkerd viz tap` needs. Without a scraper, phase 2 still protects the port, but
+  nothing collects the proxy metrics.
 - **The before/after demo changes.** With default-deny, deleting the policies in
   `policies/` no longer opens the shop: every port falls back to `deny` and the shop
   stops working. To get back to the unprotected state you have to turn phase 2 off first

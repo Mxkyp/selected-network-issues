@@ -82,7 +82,7 @@ function Enable-Policies {
   Write-Host '>> Applying the per-service policies (policies\)'
   kc apply -f policies/ | Out-Null
   Add-Attackers
-  Write-Host '>> Done. Give the proxies a few seconds before testing: attack/verify.sh (Git Bash or WSL)'
+  Write-Host '>> Done. Give the proxies a few seconds before testing: attack/verify.sh (from Git Bash)'
 }
 
 function Disable-Policies {

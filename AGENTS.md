@@ -1,6 +1,6 @@
 # AGENTS.md — Project Context & Conceptual Blueprint
 
-> **Current Phase:** Implementation: steps 1–3 done (cluster, mTLS, authorization policies); steps 4–5 (monitoring, attack demo) in progress  
+> **Current Phase:** Implementation: steps 1–3 done (cluster, mTLS, authorization policies); steps 4–5 (monitoring dashboards, final before/after demo and evidence) in progress  
 > **Project Scope:** 4-person university team project (2 ECTS)  
 > **Primary Purpose of this File:** Align team members and AI assistants on the core problem, the Zero-Trust Service Mesh concept, and the incremental workflow for drafting the project documentation.
 
@@ -66,7 +66,7 @@ Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6�
 | Optional phase 2, namespace default-deny (restarts all pods; install `linkerd-viz` first, see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
 | Show the attack (lateral movement from attacker pods) | `attack/attack.sh` | from Git Bash |
 | Check the policies end to end | `attack/verify.sh` (policies on) or `attack/verify.sh --expect-open` (policies off) | from Git Bash |
-| Pause / resume | `k3d cluster stop sina`, then `./setup.sh` | `k3d cluster stop sina`, then `setup.ps1` again |
+| Pause / resume | `.tools/k3d cluster stop sina`, then `./setup.sh` | `.tools\k3d.exe cluster stop sina`, then `setup.ps1` again |
 
 - Re-running `setup.sh` never removes policies that are already on; use `zero-trust.sh off` for the "before" state on an existing cluster.
 - `setup.sh` is idempotent: re-run it after a Docker restart; it starts a stopped cluster and recreates pods that came up without the Linkerd proxy.
