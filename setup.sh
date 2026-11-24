@@ -35,13 +35,34 @@ fi
 
 if k3d cluster list sina >/dev/null 2>&1; then
   echo ">> Cluster 'sina' already exists, reusing it"
+  # A stopped cluster (for example after a Docker restart) shows e.g. "0/1" running servers
+  if k3d cluster list sina --no-headers | awk '{split($2, s, "/"); split($3, a, "/"); exit !(s[1] < s[2] || a[1] < a[2])}'; then
+    echo ">> Cluster is stopped, starting it"
+    k3d cluster start sina
+  fi
 else
   k3d cluster create --config cluster/k3d-config.yaml
 fi
 
-# Linkerd generates new certificates on every install, so it must only ever run once per cluster
-if kubectl get deployment linkerd-destination -n linkerd >/dev/null 2>&1; then
+echo ">> Waiting for the Kubernetes API and nodes"
+for i in $(seq 1 60); do kubectl get --raw /readyz >/dev/null 2>&1 && break; sleep 5; done
+kubectl wait --for=condition=Ready node --all --timeout=300s
+
+# Linkerd generates new certificates on every install, so it must only ever run once per cluster.
+# --ignore-not-found prints nothing when Linkerd is missing but still fails if the API is unreachable,
+# so an unreachable cluster stops the script instead of triggering a second install.
+if [ -n "$(kubectl get deployment linkerd-destination -n linkerd --ignore-not-found -o name)" ]; then
   echo ">> Linkerd already installed, reusing it"
+  # After a restart the control plane needs a moment; injecting before it is ready fails
+  kubectl wait --for=condition=available deployment --all -n linkerd --timeout=600s
+  # Pods recreated while the proxy injector was still down came up without a proxy, so they have
+  # no identity and the authorization policies treat them as outsiders. Recreate them.
+  unmeshed=$(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.metadata.annotations.linkerd\.io/inject} {.spec.initContainers[*].name} {.spec.containers[*].name}{"\n"}{end}' \
+    | awk '$3 == "enabled" && $0 !~ / linkerd-proxy( |$)/ {print $1 "/" $2}')
+  for p in $unmeshed; do
+    echo ">> Recreating $p (started without the Linkerd proxy)"
+    kubectl delete pod -n "${p%%/*}" "${p#*/}" --wait=false
+  done
 else
   echo ">> Installing Linkerd"
   kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml"

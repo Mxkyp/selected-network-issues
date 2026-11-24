@@ -42,14 +42,47 @@ if (-not (Get-Command linkerd -ErrorAction SilentlyContinue)) {
 
 if (Test-Command { k3d cluster list sina }) {
   Write-Host ">> Cluster 'sina' already exists, reusing it"
+  # A stopped cluster (for example after a Docker restart) shows e.g. "0/1" running servers
+  $fields = (k3d cluster list sina --no-headers | Select-Object -First 1) -split '\s+'
+  $servers = $fields[1] -split '/'; $agents = $fields[2] -split '/'
+  if ([int]$servers[0] -lt [int]$servers[1] -or [int]$agents[0] -lt [int]$agents[1]) {
+    Write-Host '>> Cluster is stopped, starting it'
+    k3d cluster start sina
+    if ($LASTEXITCODE -ne 0) { throw 'Starting the cluster failed' }
+  }
 } else {
   k3d cluster create --config cluster/k3d-config.yaml
   if ($LASTEXITCODE -ne 0) { throw 'Cluster creation failed' }
 }
 
-# Linkerd generates new certificates on every install, so it must only ever run once per cluster
-if (Test-Command { kubectl get deployment linkerd-destination -n linkerd }) {
+Write-Host '>> Waiting for the Kubernetes API and nodes'
+for ($i = 0; $i -lt 60; $i++) {
+  if (Test-Command { kubectl get --raw /readyz }) { break }
+  Start-Sleep -Seconds 5
+}
+kubectl wait --for=condition=Ready node --all --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw 'The cluster did not become ready' }
+
+# Linkerd generates new certificates on every install, so it must only ever run once per cluster.
+# --ignore-not-found prints nothing when Linkerd is missing but still fails if the API is unreachable,
+# so an unreachable cluster stops the script instead of triggering a second install.
+$linkerdFound = kubectl get deployment linkerd-destination -n linkerd --ignore-not-found -o name
+if ($LASTEXITCODE -ne 0) { throw 'Cannot reach the cluster to check for Linkerd' }
+if ($linkerdFound) {
   Write-Host '>> Linkerd already installed, reusing it'
+  # After a restart the control plane needs a moment; injecting before it is ready fails
+  kubectl wait --for=condition=available deployment --all -n linkerd --timeout=600s
+  if ($LASTEXITCODE -ne 0) { throw 'Linkerd control plane is not ready' }
+  # Pods recreated while the proxy injector was still down came up without a proxy, so they have
+  # no identity and the authorization policies treat them as outsiders. Recreate them.
+  $pods = (kubectl get pods -A -o json | Out-String | ConvertFrom-Json).items
+  foreach ($pod in $pods) {
+    $names = @($pod.spec.containers.name) + @($pod.spec.initContainers.name)
+    if ($pod.metadata.annotations.'linkerd.io/inject' -eq 'enabled' -and $names -notcontains 'linkerd-proxy') {
+      Write-Host ">> Recreating $($pod.metadata.namespace)/$($pod.metadata.name) (started without the Linkerd proxy)"
+      kubectl delete pod -n $pod.metadata.namespace $pod.metadata.name --wait=false
+    }
+  }
 } else {
   Write-Host '>> Installing Linkerd'
   kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GatewayApiVersion/standard-install.yaml"

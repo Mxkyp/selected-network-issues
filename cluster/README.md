@@ -8,9 +8,21 @@ k3d, kubectl and the linkerd CLI are downloaded automatically (pinned versions) 
 | Linux / macOS | `./setup.sh` |
 | Windows (PowerShell) | `powershell -ExecutionPolicy Bypass -File .\setup.ps1` |
 
-The script creates the cluster, installs Linkerd and deploys `app/kubernetes-manifests.yaml` (Online Boutique v0.10.7) with a Linkerd proxy in every pod. It is idempotent: re-running reuses the existing cluster and Linkerd installation.
+The script creates the cluster, installs Linkerd and deploys `app/kubernetes-manifests.yaml` (Online Boutique v0.10.7) with a Linkerd proxy in every pod. It is idempotent: re-running reuses the existing cluster and Linkerd installation, and starts the cluster first if it is stopped.
 
 When it finishes, open http://localhost:8080.
+
+Stop and start without losing anything (frees memory between sessions):
+
+```bash
+.tools/k3d cluster stop sina
+./setup.sh          # starts a stopped cluster, waits for it and repairs pods that came up without the Linkerd proxy
+```
+
+Running `./setup.sh` again is the recommended way back after a stop or a Docker restart. A plain
+`.tools/k3d cluster start sina` also works, but then some pods can come up before the Linkerd
+proxy injector and run without a proxy (they show `1/1`). Plain pods without a deployment, such
+as the attacker pods from `attack/`, are not recreated after a stop: apply `attack/attackers.yaml` again.
 
 Tear down: `.tools/k3d cluster delete sina` (Windows: `.tools\k3d.exe cluster delete sina`).
 
