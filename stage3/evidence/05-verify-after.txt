@@ -1,4 +1,4 @@
-# $ kubectl apply -f policies/ && attack/verify.sh   (policies enforced)
+# $ attack/verify.sh   (policies enforced; current version of the script)
 Mode: enforced
 PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
 PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
@@ -45,6 +45,7 @@ PASS  shop: home page
 PASS  shop: add to cart
 PASS  shop: checkout (order confirmed)
 PASS  pods: all application pods are 2/2
+PASS  proxies: no allowed caller was denied during the run
 PASS  pods: no restarts during the run
 
 All cases passed.

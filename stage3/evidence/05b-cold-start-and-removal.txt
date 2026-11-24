@@ -2,7 +2,8 @@
 #
 # 1. Cold start under enforcement: paymentservice, frontend and redis-cart restarted with the
 #    policies in place; all three became Ready again (probes pass from a cold start).
-# $ kubectl rollout restart deploy/paymentservice deploy/frontend deploy/redis-cart && attack/verify.sh
+# $ for d in paymentservice frontend redis-cart; do kubectl rollout restart deploy/$d; kubectl rollout status deploy/$d --timeout=180s; done
+# $ sleep 30; attack/verify.sh
 Mode: enforced
 PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
 PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
@@ -104,7 +105,7 @@ PASS  pods: no restarts during the run
 All cases passed.
 
 # 3. Re-applied.
-# $ kubectl apply -f policies/ && attack/verify.sh
+# $ kubectl apply -f policies/; sleep 30; attack/verify.sh
 Mode: enforced
 PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
 PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
@@ -155,5 +156,7 @@ PASS  pods: no restarts during the run
 
 All cases passed.
 
-# During removal and re-apply no request from a legitimate caller to a route it is allowed to use
-# was denied (proxy counters inbound_*_authz_deny_total compared before and after).
+# This run was made with the first version of verify.sh (46 cases). A later version adds a
+# check of the proxies' denial counters; with it, three further remove/apply cycles showed no
+# legitimate request denied by the removal and 0-5 frontend requests denied right after each
+# apply ("no route found" before the routes reach the proxy). See policies/README.md.

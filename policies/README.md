@@ -88,9 +88,12 @@ everything on its port:
   `kubectl delete -f policies/`: it would remove the authorizations before the
   `Server`s and the shop would answer with errors for a moment.
 
-With this order no request from a legitimate caller was denied while applying or
-removing the policies. A single kubelet probe can still fail during an apply; one
-failed probe does not restart a pod.
+Removing the policies this way denied no legitimate request in our tests. Applying them
+can still deny a few: for a second or two after a `Server` appears, its proxy may not
+have the routes yet and answers "no route found". In three remove/apply cycles this hit
+0 to 5 requests from the `frontend` per apply (loadgenerator traffic), and an occasional
+kubelet probe. One failed probe does not restart a pod. For a demo, apply the policies
+a few seconds before showing the attack.
 
 Re-running `kubectl apply -f policies/` prints `configured` for the `GRPCRoute` objects
 every time. Nothing changes in the cluster (their generation stays the same); it is
@@ -108,6 +111,18 @@ attack/verify.sh --expect-open           # without policies: attacks reach the s
 meshed pod with the `adservice` identity, tries the methods the `frontend` identity must
 not reach, places a real order through the shop and checks that no pod restarted. It
 exits non-zero if any case fails. On Windows run it from Git Bash or WSL.
+
+Two checks guard against a false pass:
+
+- Before testing, it checks that each attacker pod has the identity it claims: the two
+  `attacker-as-*` pods must run the Linkerd proxy under the named ServiceAccount, and
+  `attacker-outside` must not run the proxy. A pod that came up without the proxy would
+  otherwise be denied as an anonymous client and the test would prove nothing about the
+  `adservice` identity.
+- With policies applied, it reads the proxies' denial counters before and after the run
+  (`linkerd diagnostics proxy-metrics`) and fails if any legitimate caller was denied
+  meanwhile. This covers everything the loadgenerator does during the run, not only the
+  one scripted order, so a caller/method pair missing from the policies shows up here.
 
 ## Namespace default-deny (not enabled yet)
 
