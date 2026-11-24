@@ -1,0 +1,54 @@
+# redis-cart (plain TCP, port 6379): the cart database.
+# Redis does not speak HTTP, so the proxy treats the port as opaque and the policy covers
+# the whole connection:
+#   cartservice     may connect
+#   kubelet probes  may connect (authorized so that they do not show up as denials)
+# The Server comes last on purpose: when it appears, its routes and authorizations already
+# exist, so applying this file never leaves the port without its policy.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: redis-cart-callers
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: redis-cart
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: MeshTLSAuthentication
+    name: callers-cart
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: redis-cart-probes
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: redis-cart
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
+---
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: redis-cart
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-cart
+  port: 6379
+  proxyProtocol: opaque

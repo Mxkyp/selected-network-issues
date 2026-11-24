@@ -1,0 +1,50 @@
+# Test pods for the lateral-movement simulation. Apply with: kubectl apply -f attack/attackers.yaml
+#   attacker-outside       plain pod, not in the mesh (no identity)
+#   attacker-as-adservice  meshed pod with the adservice identity (a compromised minor service)
+#   attacker-as-frontend   meshed pod with the frontend identity (a compromised service that has some legitimate access)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: attacker-outside
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: attack-simulation
+  annotations:
+    linkerd.io/inject: disabled
+spec:
+  containers:
+  - name: curl
+    image: curlimages/curl:8.11.1
+    command: ["sleep", "infinity"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: attacker-as-adservice
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: attack-simulation
+  annotations:
+    linkerd.io/inject: enabled
+spec:
+  serviceAccountName: adservice
+  containers:
+  - name: curl
+    image: curlimages/curl:8.11.1
+    command: ["sleep", "infinity"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: attacker-as-frontend
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: attack-simulation
+  annotations:
+    linkerd.io/inject: enabled
+spec:
+  serviceAccountName: frontend
+  containers:
+  - name: curl
+    image: curlimages/curl:8.11.1
+    command: ["sleep", "infinity"]

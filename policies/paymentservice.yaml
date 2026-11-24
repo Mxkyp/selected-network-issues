@@ -1,0 +1,89 @@
+# paymentservice (gRPC, port 50051)
+#   hipstershop.PaymentService/Charge   <- checkoutservice
+#   grpc.health.v1.Health/Check         <- kubelet probes
+# Everything else is denied: a request matching no route below is rejected by the proxy.
+# The Server comes last on purpose: when it appears, its routes and authorizations already
+# exist, so applying this file never leaves the port without its policy.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: paymentservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: paymentservice-health
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: NetworkAuthentication
+    name: kubelet-probes
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: paymentservice-health
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: paymentservice
+  rules:
+  - matches:
+    - method:
+        service: grpc.health.v1.Health
+        method: Check
+---
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: paymentservice-charge
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: GRPCRoute
+    name: paymentservice-charge
+  requiredAuthenticationRefs:
+  - group: policy.linkerd.io
+    kind: MeshTLSAuthentication
+    name: callers-checkout
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: paymentservice-charge
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  parentRefs:
+  - group: policy.linkerd.io
+    kind: Server
+    name: paymentservice
+  rules:
+  - matches:
+    - method:
+        service: hipstershop.PaymentService
+        method: Charge
+---
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: paymentservice
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: zero-trust-policies
+spec:
+  podSelector:
+    matchLabels:
+      app: paymentservice
+  port: 50051
+  proxyProtocol: gRPC

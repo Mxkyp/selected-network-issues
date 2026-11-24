@@ -1,0 +1,27 @@
+# Audit pass: all policies applied with `accessPolicy: audit` on every Server.
+# In audit mode a request that the policies would deny is let through and counted with
+# authz_name="audit"; the proxy also logs it ("Request allowed ... authz.name=audit").
+# A request that matches no route is still rejected (grpc-status 5), as in enforcing mode.
+# Traffic during the pass: loadgenerator, one order through the shop, and attack/attack.sh.
+#
+# $ linkerd diagnostics proxy-metrics deploy/<service> | grep authz_name=\"audit\"   (labels shortened)
+paymentservice  route=paymentservice-charge  tls=no_identity  client=  count=1
+paymentservice  route=paymentservice-charge  tls=true  client=adservice  count=1
+cartservice  route=cartservice-read  tls=no_identity  client=  count=1
+cartservice  route=cartservice-read  tls=true  client=adservice  count=1
+frontend  route=default  tls=no_identity  client=  count=3
+frontend  route=default  tls=true  client=loadgenerator  count=322
+#
+# On the nine gRPC services and on redis-cart every audited request comes from an attacker
+# pod (no identity, or the adservice identity). No request from frontend, checkoutservice,
+# recommendationservice or cartservice was audited, so enforcing the policies does not block
+# any legitimate call.
+#
+# The two frontend rows are different: its policy is attached to the Server itself, not to
+# a route, and in audit mode the proxy reports all such traffic under authz_name="audit".
+# In enforcing mode the same traffic is allowed and reported under authz_name="frontend"
+# (see 05-verify-after.txt: the shop and the loadgenerator keep working).
+#
+# $ kubectl logs deploy/paymentservice -c linkerd-proxy | grep authz.name=audit
+[  1322.393418s]  INFO ThreadId(01) inbound:server{port=50051}: linkerd_app_inbound::policy::http: Request allowed server.group=policy.linkerd.io server.kind=server server.name=paymentservice route.group=gateway.networking.k8s.io route.kind=GRPCRoute route.name=paymentservice-charge client.tls=None(NoClientHello) client.ip=10.42.0.15 authz.group= authz.kind=default authz.name=audit
+[  1322.987397s]  INFO ThreadId(01) inbound:server{port=4143}: linkerd_app_inbound::policy::http: Request allowed server.group=policy.linkerd.io server.kind=server server.name=paymentservice route.group=gateway.networking.k8s.io route.kind=GRPCRoute route.name=paymentservice-charge client.tls=Some(Established { client_id: Some(ClientId(Dns(Name("adservice.default.serviceaccount.identity.linkerd.cluster.local")))), negotiated_protocol: Some("transport.l5d.io/v1") }) client.ip=10.42.2.14 authz.group= authz.kind=default authz.name=audit

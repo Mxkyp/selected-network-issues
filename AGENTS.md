@@ -1,6 +1,6 @@
 # AGENTS.md — Project Context & Conceptual Blueprint
 
-> **Current Phase:** Concept Formulation & Specification Writing  
+> **Current Phase:** Implementation: steps 1–3 done (cluster, mTLS, authorization policies); steps 4–5 (monitoring dashboards, final before/after demo and evidence) in progress  
 > **Project Scope:** 4-person university team project (2 ECTS)  
 > **Primary Purpose of this File:** Align team members and AI assistants on the core problem, the Zero-Trust Service Mesh concept, and the incremental workflow for drafting the project documentation.
 
@@ -49,11 +49,32 @@ The project uses an existing reference benchmark application as a **testbed** an
 | **Local Cluster** | **k3d** (K3s in Docker) | Proposed | Lightweight Kubernetes distribution suitable for running locally on student laptops. |
 | **Service Mesh** | **Linkerd** (+ `linkerd-viz`) | Proposed | Lightweight, security-first service mesh providing automatic mTLS and declarative L4/L7 authorization policies without heavy resource overhead. |
 | **Observability** | **Prometheus & Grafana** | Proposed | Collecting metrics from Service Mesh proxies and visualizing allowed vs. blocked requests in real time. |
-| **Attack Simulation** | *TBD (e.g., custom attacker pod or exec into a minor service like `AdService`)* | **Open / Undecided** | Will be used to demonstrate lateral movement and unauthorized requests before and after policy enforcement. |
+| **Attack Simulation** | **Attacker pods + scripts in `attack/`** (outside the mesh, `adservice` and `frontend` identities) | Implemented | `attack/attack.sh` shows the lateral movement; `attack/verify.sh` checks every allowed and forbidden call. |
 
 ---
 
-## 5. Instructions for AI Assistants (Current Phase)
+## 5. Running the Environment
+
+Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6–7 GB of memory, and on Windows also **Git Bash** for the bash test scripts in `attack/`. The setup scripts download k3d, kubectl and the linkerd CLI into `.tools/`. Run everything from the repo root.
+
+| Goal | Linux / macOS | Windows (PowerShell) |
+|---|---|---|
+| Cluster + Linkerd + Online Boutique, **with** the Zero-Trust policies | `./setup.sh --protect` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Protect` |
+| A new cluster **without** policies (mTLS only, the "before" state of the demo) | `./setup.sh` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1` |
+| Show what is on | `./zero-trust.sh status` | `powershell -ExecutionPolicy Bypass -File .\zero-trust.ps1 status` |
+| Policies on / off on a running cluster | `./zero-trust.sh on` / `off` | same with `zero-trust.ps1 on` / `off` |
+| Optional phase 2, namespace default-deny (restarts all pods; install `linkerd-viz` first, see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
+| Show the attack (lateral movement from attacker pods) | `attack/attack.sh` | from Git Bash |
+| Check the policies end to end | `attack/verify.sh` (policies on) or `attack/verify.sh --expect-open` (policies off) | from Git Bash |
+| Pause / resume | `.tools/k3d cluster stop sina`, then `./setup.sh` | `.tools\k3d.exe cluster stop sina`, then `setup.ps1` again |
+
+- Re-running `setup.sh` never removes policies that are already on; use `zero-trust.sh off` for the "before" state on an existing cluster.
+- `setup.sh` is idempotent: re-run it after a Docker restart; it starts a stopped cluster and recreates pods that came up without the Linkerd proxy.
+- `kubectl`, `k3d` and `linkerd` are in `.tools/` (when they were not already installed): add it to the PATH to use them by hand, `export PATH="$PWD/.tools:$PATH"` (PowerShell: `$env:PATH = "$PWD\.tools;$env:PATH"`).
+- The shop is at http://localhost:8080.
+- The allow-matrix and how the policies work: `policies/README.md`. Cluster details and troubleshooting: `cluster/README.md`.
+
+## 6. Instructions for AI Assistants (Current Phase)
 
 When assisting with this project during the **concept and specification phase**:
 1.  **Focus on Conceptual Advice:** Help brainstorm, evaluate alternatives, and formulate sections of the academic project specification (`1.I` through `5`). Do not generate boilerplate infrastructure code or folder structures unless explicitly asked.

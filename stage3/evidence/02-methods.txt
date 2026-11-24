@@ -1,0 +1,43 @@
+# Distinct (caller identity, gRPC method) pairs seen by each service during about 90 s of
+# loadgenerator traffic plus three orders placed through the shop.
+# Collected with: linkerd viz tap deploy/<service> -n default -o json   (inbound requests only)
+# Callers without a mesh identity are the kubelet health probes, coming from the node addresses.
+
+## adservice
+  (no mesh identity, from 10.42.1.1)     /grpc.health.v1.Health/Check  (12 requests)
+  frontend                               /hipstershop.AdService/GetAds  (140 requests)
+## recommendationservice
+  (no mesh identity, from 10.42.0.1)     /grpc.health.v1.Health/Check  (36 requests)
+  frontend                               /hipstershop.RecommendationService/ListRecommendations  (161 requests)
+## checkoutservice
+  (no mesh identity, from 10.42.0.1)     /grpc.health.v1.Health/Check  (18 requests)
+  frontend                               /hipstershop.CheckoutService/PlaceOrder  (12 requests)
+## paymentservice
+  (no mesh identity, from 10.42.0.1)     /grpc.health.v1.Health/Check  (18 requests)
+  checkoutservice                        /hipstershop.PaymentService/Charge  (12 requests)
+## emailservice
+  (no mesh identity, from 10.42.1.1)     /grpc.health.v1.Health/Check  (36 requests)
+  checkoutservice                        /hipstershop.EmailService/SendOrderConfirmation  (12 requests)
+## cartservice
+  (no mesh identity, from 10.42.1.1)     /grpc.health.v1.Health/Check  (18 requests)
+  frontend                               /hipstershop.CartService/AddItem  (29 requests)
+  checkoutservice                        /hipstershop.CartService/EmptyCart  (12 requests)
+  frontend                               /hipstershop.CartService/EmptyCart  (3 requests)
+  checkoutservice                        /hipstershop.CartService/GetCart  (12 requests)
+  frontend                               /hipstershop.CartService/GetCart  (186 requests)
+## currencyservice
+  (no mesh identity, from 10.42.0.1)     /grpc.health.v1.Health/Check  (18 requests)
+  checkoutservice                        /hipstershop.CurrencyService/Convert  (38 requests)
+  frontend                               /hipstershop.CurrencyService/Convert  (609 requests)
+  frontend                               /hipstershop.CurrencyService/GetSupportedCurrencies  (197 requests)
+## shippingservice
+  (no mesh identity, from 10.42.0.1)     /grpc.health.v1.Health/Check  (26 requests)
+  checkoutservice                        /hipstershop.ShippingService/GetQuote  (12 requests)
+  frontend                               /hipstershop.ShippingService/GetQuote  (46 requests)
+  checkoutservice                        /hipstershop.ShippingService/ShipOrder  (12 requests)
+## productcatalogservice
+  (no mesh identity, from 10.42.2.1)     /grpc.health.v1.Health/Check  (18 requests)
+  checkoutservice                        /hipstershop.ProductCatalogService/GetProduct  (26 requests)
+  frontend                               /hipstershop.ProductCatalogService/GetProduct  (1056 requests)
+  frontend                               /hipstershop.ProductCatalogService/ListProducts  (37 requests)
+  recommendationservice                  /hipstershop.ProductCatalogService/ListProducts  (163 requests)

@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 # One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
+#   ./setup.sh             meshed (mTLS) but without authorization policies: the "before" state of the demo
+#   ./setup.sh --protect   the same, then turns the Zero-Trust policies on (./zero-trust.sh on)
 set -euo pipefail
 cd "$(dirname "$0")"
+
+PROTECT=0
+for arg in "$@"; do
+  case "$arg" in
+    --protect) PROTECT=1 ;;
+    -h|--help) sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown option: $arg (use --protect or --help)" >&2; exit 2 ;;
+  esac
+done
 
 K3D_VERSION=v5.9.0
 KUBECTL_VERSION=v1.37.2
@@ -35,13 +46,34 @@ fi
 
 if k3d cluster list sina >/dev/null 2>&1; then
   echo ">> Cluster 'sina' already exists, reusing it"
+  # A stopped cluster (for example after a Docker restart) shows e.g. "0/1" running servers
+  if k3d cluster list sina --no-headers | awk '{split($2, s, "/"); split($3, a, "/"); exit !(s[1] < s[2] || a[1] < a[2])}'; then
+    echo ">> Cluster is stopped, starting it"
+    k3d cluster start sina
+  fi
 else
   k3d cluster create --config cluster/k3d-config.yaml
 fi
 
-# Linkerd generates new certificates on every install, so it must only ever run once per cluster
-if kubectl get deployment linkerd-destination -n linkerd >/dev/null 2>&1; then
+echo ">> Waiting for the Kubernetes API and nodes"
+for i in $(seq 1 60); do kubectl get --raw /readyz >/dev/null 2>&1 && break; sleep 5; done
+kubectl wait --for=condition=Ready node --all --timeout=300s
+
+# Linkerd generates new certificates on every install, so it must only ever run once per cluster.
+# --ignore-not-found prints nothing when Linkerd is missing but still fails if the API is unreachable,
+# so an unreachable cluster stops the script instead of triggering a second install.
+if [ -n "$(kubectl get deployment linkerd-destination -n linkerd --ignore-not-found -o name)" ]; then
   echo ">> Linkerd already installed, reusing it"
+  # After a restart the control plane needs a moment; injecting before it is ready fails
+  kubectl wait --for=condition=available deployment --all -n linkerd --timeout=600s
+  # Pods recreated while the proxy injector was still down came up without a proxy, so they have
+  # no identity and the authorization policies treat them as outsiders. Recreate them.
+  unmeshed=$(kubectl get pods -A -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {.metadata.annotations.linkerd\.io/inject} {.spec.initContainers[*].name} {.spec.containers[*].name}{"\n"}{end}' \
+    | awk '$3 == "enabled" && $0 !~ / linkerd-proxy( |$)/ {print $1 "/" $2}')
+  for p in $unmeshed; do
+    echo ">> Recreating $p (started without the Linkerd proxy)"
+    kubectl delete pod -n "${p%%/*}" "${p#*/}" --wait=false
+  done
 else
   echo ">> Installing Linkerd"
   kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml"
@@ -56,5 +88,16 @@ linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f
 echo ">> Waiting for pods (can take a few minutes)"
 kubectl wait --for=condition=available deployment --all --timeout=600s
 kubectl get pods
+
+if [ "$PROTECT" = 1 ]; then
+  ./zero-trust.sh on
+else
+  # Attacker test pods for the "before" demo (attack/attack.sh, attack/verify.sh --expect-open)
+  kubectl apply -f attack/attackers.yaml >/dev/null
+  kubectl wait --for=condition=Ready pod -l app.kubernetes.io/part-of=attack-simulation --timeout=180s >/dev/null
+  echo
+  ./zero-trust.sh status
+  echo "To turn the Zero-Trust policies on: ./zero-trust.sh on   (or run ./setup.sh --protect)"
+fi
 
 echo ">> Done. Shop at http://localhost:8080"
