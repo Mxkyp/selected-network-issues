@@ -1,0 +1,83 @@
+# Phase 2: namespace default-deny enabled (policies/namespace-default-deny/README.md, "Turn it on").
+# $ kubectl get pod -l app=paymentservice -o jsonpath=...LINKERD2_PROXY_INBOUND_DEFAULT_POLICY
+deny
+
+# $ attack/verify.sh
+Mode: enforced
+PASS  attacker-outside -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-outside -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-outside -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-outside -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-outside -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-outside -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-outside -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-outside -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-adservice -> adservice:9555/hipstershop.AdService/GetAds (denied)
+PASS  attacker-as-adservice -> recommendationservice:8080/hipstershop.RecommendationService/ListRecommendations (denied)
+PASS  attacker-as-adservice -> checkoutservice:5050/hipstershop.CheckoutService/PlaceOrder (denied)
+PASS  attacker-as-adservice -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-adservice -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/GetCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/EmptyCart (denied)
+PASS  attacker-as-adservice -> cartservice:7070/hipstershop.CartService/AddItem (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/Convert (denied)
+PASS  attacker-as-adservice -> currencyservice:7000/hipstershop.CurrencyService/GetSupportedCurrencies (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/GetQuote (denied)
+PASS  attacker-as-adservice -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/GetProduct (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/ListProducts (denied)
+PASS  attacker-as-frontend -> paymentservice:50051/hipstershop.PaymentService/Charge (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/ShipOrder (denied)
+PASS  attacker-as-frontend -> emailservice:5000/hipstershop.EmailService/SendOrderConfirmation (denied)
+PASS  attacker-as-frontend -> shippingservice:50051/hipstershop.ShippingService/GetQuote (reached the application, grpc-status 0)
+PASS  attacker-outside -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-outside -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-adservice -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-adservice -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-as-frontend -> productcatalogservice:3550/hipstershop.ProductCatalogService/SearchProducts (no route)
+PASS  attacker-as-frontend -> paymentservice:50051/grpc.health.v1.Health/Check (denied)
+PASS  attacker-outside -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-adservice -> redis-cart:6379 PING (no answer)
+PASS  attacker-as-frontend -> redis-cart:6379 PING (no answer)
+PASS  shop: home page
+PASS  shop: add to cart
+PASS  shop: checkout (order confirmed)
+PASS  pods: all application pods are 2/2
+PASS  proxies: no allowed caller was denied during the run
+PASS  pods: no restarts during the run
+
+All cases passed.
+
+# $ linkerd viz stat deploy -n default    (the linkerd-viz Prometheus still collects proxy metrics)
+NAME                    MESHED   SUCCESS       RPS   LATENCY_P50   LATENCY_P95   LATENCY_P99   TCP_CONN
+adservice                  1/1   100.00%    2.0rps           1ms           1ms           1ms          5
+cartservice                1/1   100.00%    3.3rps           1ms           1ms           2ms          8
+checkoutservice            1/1   100.00%    0.6rps           1ms          18ms          20ms          4
+currencyservice            1/1   100.00%    9.6rps           1ms           1ms           1ms          8
+emailservice               1/1   100.00%    0.8rps           1ms           1ms           1ms          6
+frontend                   1/1   100.00%    3.4rps          14ms          36ms          47ms          5
+loadgenerator              1/1   100.00%    0.3rps           1ms           2ms           2ms          1
+paymentservice             1/1   100.00%    0.6rps           1ms           2ms           2ms          5
+productcatalogservice      1/1   100.00%   15.0rps           1ms           1ms           1ms          9
+recommendationservice      1/1   100.00%    2.7rps           2ms           3ms           3ms          4
+redis-cart                 1/1   100.00%    0.3rps           1ms           1ms           1ms          6
+shippingservice            1/1   100.00%    1.5rps           1ms           1ms           1ms          9
+
+# Proxy metrics of paymentservice read from other pods. Before phase 2 all three returned 200.
+# $ kubectl exec attacker-as-adservice -c curl -- curl -s -o /dev/null -w '%{http_code}' http://<paymentservice pod IP>:4191/metrics
+403
+# $ kubectl exec attacker-as-frontend -c curl -- curl -s -o /dev/null -w '%{http_code}' http://<paymentservice pod IP>:4191/metrics
+403
+# $ kubectl exec attacker-outside -c curl -- curl -s -o /dev/null -w '%{http_code}' http://<paymentservice pod IP>:4191/metrics
+403
+
+# $ linkerd viz tap deploy/paymentservice -n default    (tap still works)
+req id=1:0 proxy=in  src=10.42.1.1:51640 dst=10.42.1.54:50051 tls=no_tls_from_remote :method=POST :authority=10.42.1.54:50051 :path=/grpc.health.v1.Health/Check
+rsp id=1:0 proxy=in  src=10.42.1.1:51640 dst=10.42.1.54:50051 tls=no_tls_from_remote :status=200 latency=781µs
+end id=1:0 proxy=in  src=10.42.1.1:51640 dst=10.42.1.54:50051 tls=no_tls_from_remote grpc-status=OK duration=179µs response-length=0B

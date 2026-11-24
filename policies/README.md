@@ -42,7 +42,7 @@ Traffic that is not service-to-service:
 | Browsers → `frontend`, through the k3d load balancer on `localhost:8080` | `any-network` on the `frontend` port |
 | `loadgenerator` → `frontend` | same |
 | Kubelet health probes → every service (`grpc.health.v1.Health/Check`, `/_healthz`, TCP on Redis) | `kubelet-probes`: the node addresses `10.42.0.1`, `10.42.1.1`, `10.42.2.1` |
-| Prometheus → proxy metrics on port 4191 | not restricted in phase 1; see "Namespace default-deny" |
+| Prometheus → proxy metrics on port 4191 | open in phase 1; restricted to the scraper in phase 2 (see "Namespace default-deny") |
 
 ## How the manifests are built
 
@@ -124,15 +124,14 @@ Two checks guard against a false pass:
   meanwhile. This covers everything the loadgenerator does during the run, not only the
   one scripted order, so a caller/method pair missing from the policies shows up here.
 
-## Namespace default-deny (not enabled yet)
+## Namespace default-deny (phase 2, optional)
 
 The policies above cover every application port. Ports without a `Server` still use
 Linkerd's default policy, `all-unauthenticated`. In practice that is the proxy admin
-port 4191, where any pod can read a service's traffic metrics.
-
-Closing it means setting `config.linkerd.io/default-inbound-policy: deny` on the
-namespace and explicitly allowing the metrics scraper. That depends on which
-Prometheus step 4 uses, so it is left for after that decision.
+port 4191, where any pod can read a service's traffic metrics. Phase 2 sets the
+namespace default to `deny` and allows only the metrics scraper and kubelet probes on
+that port. How to enable it, how to pick the Prometheus allowed to scrape, and how to
+turn it off again: [`namespace-default-deny/README.md`](namespace-default-deny/README.md).
 
 ## Assumptions
 
