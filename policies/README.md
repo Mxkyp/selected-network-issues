@@ -64,7 +64,18 @@ authentication. That gives an attacker two different answers:
 ## Apply and remove
 
 `setup.sh` leaves the cluster meshed but unprotected on purpose, so the attack can be
-shown before and after. From the repo root:
+shown before and after (`setup.sh --protect` turns the policies on at the end).
+
+The simple way is `zero-trust.sh` in the repo root (Windows: `zero-trust.ps1`), which
+also creates the attacker test pods and keeps the right order:
+
+```bash
+./zero-trust.sh on       # protect
+./zero-trust.sh off      # back to the unprotected state
+./zero-trust.sh status   # what is on right now
+```
+
+What it does, by hand, from the repo root:
 
 ```bash
 export PATH="$PWD/.tools:$PATH"
@@ -110,7 +121,7 @@ attack/verify.sh --expect-open           # without policies: attacks reach the s
 `verify.sh` calls every method of the matrix from a pod outside the mesh and from a
 meshed pod with the `adservice` identity, tries the methods the `frontend` identity must
 not reach, places a real order through the shop and checks that no pod restarted. It
-exits non-zero if any case fails. On Windows run it from Git Bash or WSL.
+exits non-zero if any case fails. On Windows run it from Git Bash.
 
 Two checks guard against a false pass:
 

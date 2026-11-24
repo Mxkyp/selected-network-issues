@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 # One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
+#   ./setup.sh             meshed (mTLS) but without authorization policies: the "before" state of the demo
+#   ./setup.sh --protect   the same, then turns the Zero-Trust policies on (./zero-trust.sh on)
 set -euo pipefail
 cd "$(dirname "$0")"
+
+PROTECT=0
+for arg in "$@"; do
+  case "$arg" in
+    --protect) PROTECT=1 ;;
+    -h|--help) sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown option: $arg (use --protect or --help)" >&2; exit 2 ;;
+  esac
+done
 
 K3D_VERSION=v5.9.0
 KUBECTL_VERSION=v1.37.2
@@ -77,5 +88,16 @@ linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f
 echo ">> Waiting for pods (can take a few minutes)"
 kubectl wait --for=condition=available deployment --all --timeout=600s
 kubectl get pods
+
+if [ "$PROTECT" = 1 ]; then
+  ./zero-trust.sh on
+else
+  # Attacker test pods for the "before" demo (attack/attack.sh, attack/verify.sh --expect-open)
+  kubectl apply -f attack/attackers.yaml >/dev/null
+  kubectl wait --for=condition=Ready pod -l app.kubernetes.io/part-of=attack-simulation --timeout=180s >/dev/null
+  echo
+  ./zero-trust.sh status
+  echo "To turn the Zero-Trust policies on: ./zero-trust.sh on   (or run ./setup.sh --protect)"
+fi
 
 echo ">> Done. Shop at http://localhost:8080"

@@ -19,6 +19,10 @@ authorization refuses everything. The admin port then needs its own policy
 
 ## Before you enable it
 
+- **Install `linkerd-viz` first** if you use variant A below (the setup scripts do not
+  install it): `linkerd viz install | kubectl apply -f -`, wait for `linkerd viz check`,
+  then re-run `./setup.sh` so that existing pods get the tap support. Without a scraper,
+  phase 2 still protects the port, but nothing collects the proxy metrics.
 - **The before/after demo changes.** With default-deny, deleting the policies in
   `policies/` no longer opens the shop: every port falls back to `deny` and the shop
   stops working. To get back to the unprotected state you have to turn phase 2 off first
@@ -91,6 +95,10 @@ policy with a `NetworkAuthentication` listing the Prometheus pod's current `/32`
 Meshing it (variant B) is simpler and safer.
 
 ## Turn it on
+
+The short way: `./zero-trust.sh deny on` (and `./zero-trust.sh deny off`) in the repo root,
+or `.\zero-trust.ps1 deny on` on Windows. It refuses to run while phase 1 is off and does
+the steps below. By hand:
 
 From the repo root, with the policies in `policies/` already applied.
 `kubectl apply -f policies/` does not descend into this directory, so phase 2 is only

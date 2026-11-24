@@ -1,4 +1,7 @@
 # One-click setup (Windows PowerShell 5.1+ / pwsh): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
+#   .\setup.ps1            meshed (mTLS) but without authorization policies: the "before" state of the demo
+#   .\setup.ps1 -Protect   the same, then turns the Zero-Trust policies on (.\zero-trust.ps1 on)
+param([switch]$Protect)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 Set-Location $PSScriptRoot
@@ -6,7 +9,7 @@ Set-Location $PSScriptRoot
 $K3dVersion = 'v5.9.0'; $KubectlVersion = 'v1.37.2'; $LinkerdVersion = 'edge-26.11.1'; $GatewayApiVersion = 'v1.2.1'
 $Tools = Join-Path $PSScriptRoot '.tools'
 New-Item -ItemType Directory -Force $Tools | Out-Null
-$env:PATH = "$Tools;$env:PATH"
+$env:PATH = "$Tools$([IO.Path]::PathSeparator)$env:PATH"
 
 # Exit-code check. Stop must be off here: PS 5.1 turns redirected stderr of native commands into terminating errors
 function Test-Command([scriptblock]$Command) {
@@ -100,5 +103,18 @@ Write-Host '>> Waiting for pods (can take a few minutes)'
 kubectl wait --for=condition=available deployment --all --timeout=600s
 if ($LASTEXITCODE -ne 0) { throw 'Some deployments did not become available' }
 kubectl get pods
+
+$zeroTrust = Join-Path $PSScriptRoot 'zero-trust.ps1'
+if ($Protect) {
+  & $zeroTrust on
+} else {
+  # Attacker test pods for the "before" demo (attack/attack.sh, attack/verify.sh --expect-open)
+  kubectl apply -f attack/attackers.yaml | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Applying the attacker test pods failed' }
+  kubectl wait --for=condition=Ready pod -l app.kubernetes.io/part-of=attack-simulation --timeout=180s | Out-Null
+  Write-Host ''
+  & $zeroTrust status
+  Write-Host 'To turn the Zero-Trust policies on: .\zero-trust.ps1 on   (or run .\setup.ps1 -Protect)'
+}
 
 Write-Host '>> Done. Shop at http://localhost:8080'
