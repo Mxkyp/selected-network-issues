@@ -147,7 +147,10 @@ stage3/evidence/                 # captured outputs for the report
    replaced by applying one service at a time and watching `inbound_http_authz_deny_total`.
 2. Switch to enforcing (remove `accessPolicy: audit`) and run `attack/verify.sh`.
 3. On/off for the demo: `kubectl apply -f policies/` and
-   `kubectl delete -f policies/`. No pod restarts.
+   `kubectl delete server,grpcroute,authorizationpolicy,meshtlsauthentication,networkauthentication -l app.kubernetes.io/part-of=zero-trust-policies`
+   (deleted by label with `server` first, so no port is left with a `Server` but without
+   its authorizations; `kubectl delete -f policies/` would remove the authorizations first
+   and briefly deny the shop). No pod restarts. See `policies/README.md`.
 
 **Phase 2: namespace default-deny (hardening, done after phase 1 is verified).**
 

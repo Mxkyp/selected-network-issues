@@ -148,12 +148,12 @@ Every file also has the `<svc>-health` route authorized by `kubelet-probes`.
 **Files:**
 - Create: `stage3/evidence/04-audit.txt`, `stage3/evidence/05-verify-after.txt`
 
-- [ ] **Step 1:** `kubectl delete -f policies/`; run `attack/verify.sh --expect-open`. Expected: exit 0.
+- [ ] **Step 1:** `kubectl delete server,grpcroute,authorizationpolicy,meshtlsauthentication,networkauthentication -l app.kubernetes.io/part-of=zero-trust-policies` (by label, `server` first; not `kubectl delete -f policies/`, which removes the authorizations before the `Server`s and briefly denies the shop); run `attack/verify.sh --expect-open`. Expected: exit 0.
 - [ ] **Step 2: Audit pass.** Apply the policies with `accessPolicy: audit` added to every `Server` (generate with `sed` into the scratch directory, not into the repo). Place one order and run `attack/attack.sh`. Record in `04-audit.txt` how audited requests show up (proxy log lines and the `inbound_http_authz_*` series) and confirm no legitimate identity appears among them. If audit mode turns out not to apply to route-bound requests, record that finding in the file instead; Task 4 step 3 already served as the incremental check.
 - [ ] **Step 3:** `kubectl apply -f policies/` (enforcing). Run `attack/verify.sh | tee stage3/evidence/05-verify-after.txt`. Expected: exit 0.
-- [ ] **Step 4: Idempotency.** `kubectl apply -f policies/` again. Expected: every line ends in `unchanged`.
+- [ ] **Step 4: Idempotency.** `kubectl apply -f policies/` again. Expected: no errors; every object except the `GRPCRoute`s prints `unchanged`. `GRPCRoute`s always print `configured` on re-apply; confirm nothing changed with `kubectl get grpcroute paymentservice-charge -o jsonpath='{.metadata.generation}'` (same value before and after).
 - [ ] **Step 5: Cold start under enforcement.** `kubectl rollout restart deploy/paymentservice deploy/frontend deploy/redis-cart` then `kubectl rollout status` for each (timeout 180 s). Expected: all complete; `attack/verify.sh` exits 0 (ignore its restart-count case for this one run by starting the script after the rollout finishes).
-- [ ] **Step 6: Clean removal.** `kubectl delete -f policies/`, then `attack/verify.sh --expect-open` exits 0 with no pod restarted; finally `kubectl apply -f policies/` to leave the cluster protected.
+- [ ] **Step 6: Clean removal.** Delete by label as in step 1, then `attack/verify.sh --expect-open` exits 0 with no pod restarted; finally `kubectl apply -f policies/` to leave the cluster protected.
 - [ ] **Step 7:** Commit the two evidence files: `added audit and after-policy verification evidence (#9)`.
 
 ### Task 7: Namespace default-deny (issue #9) — gated
