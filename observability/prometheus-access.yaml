@@ -1,0 +1,17 @@
+# linkerd-viz protects its Prometheus with the Server "prometheus-admin", which only
+# authorizes linkerd-viz's own metrics-api. Without this policy every Grafana query is denied.
+# It lets the Grafana identity (ServiceAccount grafana in namespace grafana) query it as well.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: grafana
+  namespace: linkerd-viz
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: prometheus-admin
+  requiredAuthenticationRefs:
+    - kind: ServiceAccount
+      name: grafana
+      namespace: grafana

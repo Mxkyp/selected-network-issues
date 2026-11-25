@@ -5,7 +5,10 @@ metadata:
 servers: 1
 agents: 2
 ports:
-  - port: 8080:80          # localhost:8080 -> cluster load balancer (for a later Ingress)
+  - port: 8080:80          # localhost:8080 -> cluster load balancer -> the shop
+    nodeFilters:
+      - loadbalancer
+  - port: 3000:3000        # localhost:3000 -> cluster load balancer -> Grafana
     nodeFilters:
       - loadbalancer
 options:

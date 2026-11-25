@@ -1,0 +1,99 @@
+# Step 4: Grafana dashboard for allowed vs denied traffic
+
+Grafana shows what the step 3 authorization policies do: which calls the Linkerd proxies let
+through, which they refuse, and who was refused. It reads the Prometheus that comes with
+linkerd-viz, so nothing else collects metrics.
+
+```
+Linkerd proxies --(metrics, port 4191)--> Prometheus (linkerd-viz) <--(queries, mTLS)-- Grafana
+```
+
+## Open it
+
+`setup.sh` / `setup.ps1` install linkerd-viz and Grafana. Then open
+**http://localhost:3000**. The dashboard "Zero Trust: allowed vs denied" is the home page and
+can be viewed without logging in. To change it, edit the files here, not the UI.
+
+A cluster created before step 4 has no port 3000 on its load balancer. Add it once:
+
+```bash
+.tools/k3d cluster edit sina --port-add 3000:3000@loadbalancer
+```
+
+## Show an attack on the dashboard
+
+```bash
+kubectl apply -f policies/              # step 3 policies
+kubectl apply -f attack/attackers.yaml  # test pods, once
+attack/attack.sh                        # run it two or three times, ~15 s apart
+```
+
+The attacks appear within about 15 seconds (10 s scrape interval, 5 s refresh).
+
+## Panels
+
+| Panel | What it shows |
+|---|---|
+| Denied calls (since pod start) | gRPC/HTTP calls refused by the policies, without health checks |
+| Allowed requests/s | calls let through, without health checks |
+| Allowed with mTLS | share of allowed calls that arrived with a verified mesh identity |
+| Denied TCP (5 min) | refused raw TCP connections, in practice to `redis-cart` |
+| Denied probes (5 min) | refused kubelet health checks; must be 0 |
+| Denied calls per service | refusals per second, by target service |
+| Allowed requests per service | allowed calls per second, by target service |
+| Who was denied, and where | target, method and caller identity of every refusal |
+
+The numbers come from the proxies' counters `inbound_http_authz_allow_total`,
+`inbound_http_authz_deny_total` and `inbound_tcp_authz_deny_total`. In the table, a caller with
+an identity (for example `adservice.default.serviceaccount…`) is a meshed pod; an empty identity
+with `no_tls_from_remote` is a pod outside the mesh.
+
+## Why Grafana needs a policy
+
+linkerd-viz protects its Prometheus: the `Server` `prometheus-admin` authorizes only
+linkerd-viz's own `metrics-api`. Without `prometheus-access.yaml` every Grafana query fails
+with **403**. Tested: the Prometheus proxy counted the denial for
+`grafana.grafana.serviceaccount.identity.linkerd.cluster.local`. That is why the `grafana`
+namespace is meshed (Grafana needs an identity) and the policy names that identity.
+
+This corrects `policies/namespace-default-deny/README.md`, which says Grafana needs no policy.
+That holds for the application pods, not for the Prometheus it queries.
+
+## Limits
+
+- **Six hours of data.** The linkerd-viz Prometheus keeps metrics for 6 h and loses them when
+  its pod restarts. Enough for a demo; longer history needs a separate Prometheus (variant B in
+  `policies/namespace-default-deny/README.md`).
+- **The first denial of a new caller/method pair is not in the per-second chart.** It starts a
+  new counter, and a rate needs two samples. The "since pod start" panel and the table do count
+  it. Run the attack more than once.
+- **TCP denials have no method.** For `redis-cart`, an attacker and a blocked TCP probe look the
+  same.
+- **Counters reset when a pod restarts**, so "since pod start" is per pod lifetime.
+
+## Denied probes is not 0
+
+The step 3 policies allow kubelet probes from a fixed list of node addresses
+(`kubelet-probes` in `policies/00-authentications.yaml`: `10.42.0.1`, `10.42.1.1`,
+`10.42.2.1`). If a node gets another pod network, pods on it fail their probes and restart.
+This happened after an interrupted `setup` run, where one node got `10.42.3.0/24`:
+`checkoutservice`, `emailservice` and `recommendationservice` kept restarting and checkout
+failed. Check the node networks with:
+
+```bash
+kubectl get nodes -o custom-columns=NODE:.metadata.name,CIDR:.spec.podCIDR
+```
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `kustomization.yaml` | applies everything: `kubectl apply -k observability/` |
+| `grafana.yaml` | namespace (meshed), ServiceAccount, Deployment, Service on port 3000 |
+| `prometheus-access.yaml` | lets the Grafana identity query the linkerd-viz Prometheus |
+| `grafana/datasources.yaml` | Prometheus data source |
+| `grafana/dashboard-provider.yaml` | loads dashboards from files |
+| `grafana/dashboards/zero-trust.json` | the dashboard |
+
+Grafana runs with anonymous view access and no persistent storage, which is fine for a local
+demo cluster and not for anything shared.
