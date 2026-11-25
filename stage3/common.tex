@@ -1,0 +1,33 @@
+% Shared by report.tex and presentation.tex.
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.misc}
+
+\definecolor{todored}{HTML}{C0392B}
+\definecolor{good}{HTML}{1E8449}
+\definecolor{bad}{HTML}{B03A2E}
+\definecolor{mesh}{HTML}{2E86C1}
+
+% Anything the team still has to fill in. Search the .tex files for \todo.
+\newcommand{\todo}[1]{{\color{todored}\textbf{[TODO:} #1\textbf{]}}}
+
+% \placeholder{width}{height}{text}: red box where a figure will go.
+\newcommand{\placeholder}[3]{%
+  \fcolorbox{todored}{todored!5}{\parbox[c][#2][c]{\dimexpr#1-2\fboxsep-2\fboxrule\relax}%
+    {\centering\color{todored}\small #3}}}
+
+% \evidence{file}{width}{height}{what it should show}
+% Shows evidence/<file> once it exists, a placeholder until then.
+\newcommand{\evidence}[4]{%
+  \IfFileExists{evidence/#1}%
+    {\includegraphics[width=#2,height=#3,keepaspectratio]{evidence/#1}}%
+    {\placeholder{#2}{#3}{missing \texttt{evidence/#1}\\[2pt]#4}}}
+
+\tikzset{
+  >={Stealth},
+  svc/.style={draw, rounded corners, minimum width=2.3cm, minimum height=.75cm,
+              font=\small\ttfamily, fill=white},
+  hacked/.style={svc, draw=bad, fill=bad!12},
+  proxy/.style={svc, fill=mesh!15, draw=mesh},
+}

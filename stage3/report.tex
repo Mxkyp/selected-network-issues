@@ -1,0 +1,340 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{microtype}
+\input{common.tex}
+\usepackage[hidelinks]{hyperref}
+
+\titlelabel{\thetitle.\quad}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+% ---------------------------------------------------------------- title page
+\begin{titlepage}
+  \centering
+  {\large Lodz University of Technology\\
+  Faculty of Technical Physics, Information Technology and Applied Mathematics\\
+  Institute of Information Technology\par}
+  \vspace{1.5cm}
+  {\large Selected Issues of Network Applications\\2026/2027\par}
+  \vspace{3cm}
+  {\LARGE\bfseries Modern Service Mesh: a better way to secure communication
+  between microservices\par}
+  \vspace{1cm}
+  {\Large Stage 3 report: final results\par}
+  \vspace{3cm}
+  {\large
+  Jędrzej Bartoszewski, 251482\\
+  Michał Domagała, 251505\\
+  Kacper Maziarz, 251586\\
+  Mikołaj Pawłoś, 258681\par}
+  \vfill
+\end{titlepage}
+
+\todo{Check the course requirements for the final report: if they ask for
+sections other than the stage 2 ones, rename or add them here.}
+
+The problem definition, the choice of tools and the functional requirements
+are unchanged from the stage 1 report, and steps 1 and 2 are described in the
+stage 2 report. This report covers steps 3--5: the authorization policies, the
+monitoring dashboard and the attack simulation, and what we learned while
+building them.
+
+% ---------------------------------------------------------------- 1
+\section{Work progress}
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{clll}
+    \toprule
+    \# & Step & Planned & Status \\
+    \midrule
+    1 & k3d cluster and Online Boutique      & Weeks 3--4                  & Done \\
+    2 & Linkerd with mTLS (Proof of Concept) & Weeks 5--6, until 6.11.2026 & Done \\
+    3 & Zero-Trust authorization policies    & Week 7                      & Done \\
+    4 & Prometheus and Grafana               & Week 8                      & \todo{?} \\
+    5 & Attack simulation                    & Week 9, until 27.11.2026    & \todo{?} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Schedule from the stage 1 report and the final status.}
+\end{table}
+
+Step 3 took longer than the one week we planned: the design is dated 11.11
+and the policies were ready for review on 24.11. \todo{one sentence on how
+this affected steps 4 and 5, and whether the 27.11 deadline was met.}
+
+\subsection*{Step 3: Zero-Trust authorization policies}
+
+After step 2 every connection in the mesh was encrypted and both sides knew
+each other's identity, but every service still accepted requests from anyone.
+Step 3 adds authorization: each service now accepts only the callers and the
+operations that Online Boutique actually needs, and refuses everything else.
+
+\textbf{Allow-matrix.} We first recorded which identity calls which gRPC
+method during normal use: about 90 seconds of loadgenerator traffic plus three
+orders placed by hand, captured with \texttt{linkerd viz tap}. This gave the
+16 service-to-service connections already seen in step 2, broken down into 20
+distinct (caller, method) pairs. Table~\ref{tab:matrix} is the result. The
+callers are Kubernetes ServiceAccounts, which Linkerd turns into the identities
+in the mTLS certificates.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lll}
+    \toprule
+    Service & Methods & Allowed callers \\
+    \midrule
+    \texttt{paymentservice}        & \texttt{Charge}                       & checkout \\
+    \texttt{emailservice}          & \texttt{SendOrderConfirmation}        & checkout \\
+    \texttt{checkoutservice}       & \texttt{PlaceOrder}                   & frontend \\
+    \texttt{adservice}             & \texttt{GetAds}                       & frontend \\
+    \texttt{recommendationservice} & \texttt{ListRecommendations}          & frontend \\
+    \texttt{cartservice}           & \texttt{GetCart}, \texttt{EmptyCart}  & frontend, checkout \\
+                                   & \texttt{AddItem}                      & frontend \\
+    \texttt{currencyservice}       & \texttt{Convert}                      & frontend, checkout \\
+                                   & \texttt{GetSupportedCurrencies}       & frontend \\
+    \texttt{shippingservice}       & \texttt{GetQuote}                     & frontend, checkout \\
+                                   & \texttt{ShipOrder}                    & checkout \\
+    \texttt{productcatalogservice} & \texttt{GetProduct}                   & frontend, checkout \\
+                                   & \texttt{ListProducts}                 & frontend, recommendation \\
+                                   & \texttt{SearchProducts}               & nobody \\
+    all nine above                 & gRPC health check                     & kubelet (node addresses) \\
+    \texttt{frontend}              & everything (HTTP)                     & any network \\
+    \texttt{redis-cart}            & whole port (TCP)                      & cart; kubelet \\
+    \bottomrule
+  \end{tabular}
+  \caption{Who may call what after step 3. \texttt{loadgenerator} receives no
+    traffic and gets no policy.}
+  \label{tab:matrix}
+\end{table}
+
+\textbf{Policies.} The matrix is written as Linkerd policy resources in
+\texttt{policies/}, one file per service. Each gRPC service gets a
+\texttt{Server} for its port, one \texttt{GRPCRoute} per group of methods with
+the same callers, and an \texttt{AuthorizationPolicy} per route that names the
+allowed identities through a \texttt{MeshTLSAuthentication}. So the policies
+work per method (layer 7), not just per port: \texttt{frontend} may call
+\texttt{GetQuote} on \texttt{shippingservice} but not \texttt{ShipOrder}. The
+two services that don't speak gRPC are authorized per port: \texttt{frontend}
+is the public entry point and accepts anyone, and \texttt{redis-cart} accepts
+only \texttt{cartservice}. \todo{count the resources: Servers, routes,
+policies, lines of YAML.}
+
+\textbf{Rollout.} We applied the policies first in audit mode, in which the
+proxy lets a request through but records that the policies would have denied
+it. During a full order flow plus the attack script, every audited request
+came from an attacker pod and none from a legitimate caller, so we switched to
+enforcing. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
+version) switch the policies without restarting any pod, which is what the
+before/after demo in step 5 needs; \texttt{setup.sh -{}-protect} builds a new
+cluster with the policies already on.
+
+\textbf{Verification.} \texttt{attack/verify.sh} checks the whole matrix in
+47 cases (Figure~\ref{fig:verify}). Three test pods act as attackers: one
+outside the mesh, one running as \texttt{adservice} (a compromised minor
+service) and one running as \texttt{frontend} (a compromised service that has
+some legitimate access). With the policies on:
+
+\begin{itemize}[itemsep=2pt]
+  \item every method in the matrix called by the first two pods fails with
+    gRPC status 7, \texttt{PermissionDenied};
+  \item the \texttt{frontend} identity is refused on \texttt{Charge},
+    \texttt{ShipOrder} and \texttt{SendOrderConfirmation}, but still reaches
+    \texttt{GetQuote}, which the real frontend needs;
+  \item health checks from the attackers are refused and Redis doesn't answer
+    them;
+  \item the shop still works end to end: home page, add to cart and checkout
+    up to the order confirmation;
+  \item all pods stay \texttt{2/2} with no restarts, and the proxies count no
+    denial for any caller the matrix allows.
+\end{itemize}
+
+Without the policies, the same script in \texttt{-{}-expect-open} mode shows
+that every one of these calls reaches the application.
+
+\begin{figure}[h]
+  \centering
+  \evidence{08-verify.png}{\linewidth}{8cm}{\texttt{attack/verify.sh} with the
+    policies on: 47 PASS lines}
+  \caption{\todo{caption; text versions in \texttt{evidence/03-verify-before.txt}
+    and \texttt{evidence/05-verify-after.txt}.}}
+  \label{fig:verify}
+\end{figure}
+
+\textbf{Phase 2: namespace default-deny.} The policies cover every application
+port, but a port without a \texttt{Server} still falls back to Linkerd's
+default, \texttt{all-unauthenticated}. That leaves the proxy admin port 4191
+open on every pod, so any pod can read another service's traffic metrics. As
+an optional hardening step, the namespace default can be switched to
+\texttt{deny}, with one extra policy that lets only the linkerd-viz Prometheus
+read \texttt{/metrics} and only the kubelet reach the proxy's own health
+checks. We tested it: \texttt{verify.sh} still passed, Prometheus kept
+scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}. It is not
+enabled by default because it restarts every pod and changes the demo: with
+default-deny, removing the policies no longer opens the shop, it breaks it.
+
+\subsection*{Step 4: Prometheus and Grafana}
+
+\todo{Kacper: describe what was built, how it is installed and how it was
+tested. Draft from \texttt{observability/README.md} below; check and extend.}
+
+Grafana runs in its own meshed namespace and reads the Prometheus that comes
+with linkerd-viz, so nothing else has to collect metrics. The setup scripts
+install linkerd-viz before the shop and apply \texttt{observability/} with
+\texttt{kubectl apply -k}; the dashboard ``Zero Trust: allowed vs denied'' is
+at \url{http://localhost:3000}. Its panels are built from three proxy
+counters: allowed requests, denied requests, and denied TCP connections. The
+table ``Who was denied, and where'' lists the target, method and caller
+identity of each refusal. \todo{retention, refresh rate, panel list or a
+figure of the dashboard.}
+
+\begin{figure}[h]
+  \centering
+  \evidence{10-grafana.png}{\linewidth}{8cm}{Grafana dashboard right after
+    \texttt{attack/attack.sh}}
+  \caption{\todo{caption}}
+  \label{fig:grafana}
+\end{figure}
+
+\subsection*{Step 5: attack simulation}
+
+\todo{Michał: the final before/after run, the evidence collected, and what it
+shows. Points to cover are below.}
+
+The attack reproduces the lateral movement from the stage 2 report: two
+attacker pods, one outside the mesh and one with the \texttt{adservice}
+identity, call \texttt{PaymentService/Charge} and \texttt{CartService/GetCart}
+directly (\texttt{attack/attack.sh}).
+
+\begin{itemize}[itemsep=2pt]
+  \item \todo{before: \texttt{./zero-trust.sh off}, both calls reach the
+    application (output, Figure~\ref{fig:attack}).}
+  \item \todo{after: \texttt{./zero-trust.sh on}, both calls end with
+    \texttt{PermissionDenied}, and the dashboard shows who was refused.}
+  \item \todo{the compromised \texttt{frontend} scenario: what least privilege
+    still allows and what it stops.}
+\end{itemize}
+
+\begin{figure}[h]
+  \centering
+  \evidence{09-attack-before.png}{\linewidth}{5cm}{\texttt{attack/attack.sh}
+    without policies}
+
+  \vspace{1em}
+  \evidence{11-attack-after.png}{\linewidth}{5cm}{\texttt{attack/attack.sh}
+    with policies}
+  \caption{\todo{caption}}
+  \label{fig:attack}
+\end{figure}
+
+% ---------------------------------------------------------------- 2
+\section{Insights and challenges}
+
+\subsection*{Routes are mandatory, so per-method rules cost little}
+
+We expected method-level rules to be much more work than port-level ones. They
+weren't, because of how Linkerd behaves once a port has a \texttt{Server}.
+A \texttt{Server} with no authorization denies everything on its port,
+including the kubelet's health checks, and the pod restarts. As soon as the
+port has any route, a request that matches no route is rejected with gRPC
+status 5 (``no route found''). So even a port-level policy needs a route for
+the health check and a catch-all route for the application. Writing one route
+per method group instead adds little, and it gives a method that nothing uses,
+like \texttt{SearchProducts}, no route at all.
+
+Two smaller rules shaped the files. References inside one
+\texttt{AuthorizationPolicy} are combined with AND, so ``frontend or
+checkout'' has to be a single \texttt{MeshTLSAuthentication} listing both
+identities. And the kubelet has no mesh identity, so the health checks are
+allowed by source address: the three node gateway addresses of our
+three-node cluster. That ties the policies to the cluster layout. \todo{Kacper
+hit exactly this: after an interrupted setup one node got another pod network
+and three services kept restarting. One or two sentences, or drop.}
+
+\subsection*{Least privilege also limits a compromised service}
+
+The \texttt{attacker-as-frontend} pod shows what the policies can't do: a pod
+with the frontend's identity still has the frontend's rights. It can read
+shipping quotes and carts, because the real frontend must. It can no longer
+charge a card, send an e-mail or ship an order, which it could do before step
+3. Without a service mesh, the only way to express this would be in the
+application code of every service. \texttt{NetworkPolicy}, Kubernetes' own
+firewall, works on IP addresses and labels and doesn't see gRPC methods at
+all.
+
+The test pods also turned up a weak spot in the application itself: an empty
+\texttt{ShipOrder} request crashes \texttt{shippingservice}, because it reads
+the address without checking that it is there. Without policies any pod in the
+cluster can restart that service at will. With them, only
+\texttt{checkoutservice} can send it anything.
+
+\subsection*{Switching policies on without breaking the shop}
+
+A \texttt{Server} applied before its authorizations denies every request on
+its port for a moment, and one deleted after them does the same. We put each
+\texttt{Server} last in its file and remove the policies by label, so the
+\texttt{Server} goes first. Removal now loses no request. Applying can still
+refuse up to five frontend requests while the routes reach the proxies, which
+we accept for a demo. \todo{keep or drop this subsection depending on space.}
+
+\subsection*{Testing the tests}
+
+Our first version of \texttt{verify.sh} could pass on a broken setup. A route
+that was missing returned status 5, which we counted as ``reached the
+application''. An attacker pod that started without its proxy looked like the
+outside attacker. And the script never checked whether legitimate callers were
+being refused. We broke the cluster on purpose for each case, watched the
+script fail, then fixed it. The current version also checks the attacker pods'
+identities and compares the proxies' denial counters for allowed callers
+before and after the run.
+
+\subsection*{Running it all on a laptop}
+
+With Linkerd, linkerd-viz and Grafana, the cluster needs 6--7~GB of memory in
+Docker. With 4~GB, the Docker VM started swapping and the cluster stopped
+responding, twice. Overload has a side effect that is easy to miss. If the
+Linkerd proxy injector is down while a pod starts, the pod starts without a
+proxy (\texttt{1/1} instead of \texttt{2/2}). It works, but it has no
+identity, so the policies treat it as an outsider and the shop partly breaks.
+The setup scripts now detect such pods and recreate them, and the policy
+scripts restart deployments one at a time.
+
+\subsection*{Monitoring needs its own authorization}
+
+\todo{Kacper: Grafana's queries to the linkerd-viz Prometheus were refused with
+403 until Grafana got a mesh identity and a policy, because linkerd-viz
+protects its own Prometheus. Also: the first denial of a new caller/method pair
+doesn't show in the per-second chart. Expand or drop.}
+
+\subsection*{Resource cost of the policies}
+
+\todo{memory and latency with the policies on versus off, if we measure it;
+\texttt{kubectl top pods -{}-containers} and the latency columns of
+\texttt{linkerd viz stat}. Otherwise say it was not measured.}
+
+% ---------------------------------------------------------------- 3
+\section{Summary}
+
+\todo{What the project shows, in a few sentences: mTLS alone stops
+eavesdropping but not lateral movement; authorization policies on top of the
+mesh identities stop it without changing the application; the dashboard makes
+the refusals visible.}
+
+\todo{Did we meet the functional requirements from the stage 1 report? One
+line per requirement, or a short table.}
+
+\todo{Limits and possible extensions: phase 2 off by default, probe addresses
+tied to three nodes, six hours of metrics in linkerd-viz, policies tested only
+on Linkerd edge-26.11.1.}
+
+\end{document}
