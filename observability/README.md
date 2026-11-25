@@ -20,6 +20,17 @@ A cluster created before step 4 has no port 3000 on its load balancer. Add it on
 .tools/k3d cluster edit sina --port-add 3000:3000@loadbalancer
 ```
 
+## What the setup scripts do
+
+| Step | Why |
+|---|---|
+| install linkerd-viz before the shop | every app pod starts ready for `linkerd viz tap`, no restart needed |
+| deploy the shop | unchanged |
+| `kubectl apply -k observability/` | Grafana, its data source and dashboard, and the policy below |
+
+Both scripts skip linkerd-viz when it is already installed, so re-running them is safe.
+`cluster/k3d-config.yaml` maps port 3000 to the load balancer for new clusters.
+
 ## Show an attack on the dashboard
 
 ```bash
@@ -58,6 +69,23 @@ namespace is meshed (Grafana needs an identity) and the policy names that identi
 
 This corrects `policies/namespace-default-deny/README.md`, which says Grafana needs no policy.
 That holds for the application pods, not for the Prometheus it queries.
+
+## Tested
+
+On a cluster built from zero with `setup.ps1` (Windows, 339 s), then `kubectl apply -f policies/`:
+
+| Check | Result |
+|---|---|
+| All pods ready, including Grafana | yes |
+| `attack/attack.sh` run 3 times (4 calls each) | 12 calls refused with gRPC status 7, 12 shown in "Denied calls" |
+| "Who was denied" table | `adservice` identity and the pod outside the mesh, on `paymentservice-charge` and `cartservice-read` |
+| Denied probes / denied TCP | 0 / 0 |
+| Allowed with mTLS | about 99 % |
+| `linkerd viz tap` right after setup | works, no pod restart |
+| Grafana without `prometheus-access.yaml` | every query fails with 403 |
+
+`setup.sh` was only checked for syntax after these changes, not run on Linux or macOS.
+Performance overhead of the mesh and the policies is not measured yet.
 
 ## Limits
 
