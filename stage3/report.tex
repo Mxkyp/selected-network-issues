@@ -40,9 +40,6 @@
   \vfill
 \end{titlepage}
 
-\todo{Check the course requirements for the final report: if they ask for
-sections other than the stage 2 ones, rename or add them here.}
-
 The problem definition, the choice of tools and the functional requirements
 are unchanged from the stage 1 report, and steps 1 and 2 are described in the
 stage 2 report. This report covers steps 3--5: the authorization policies, the
@@ -322,19 +319,11 @@ doesn't show in the per-second chart. Expand or drop.}
 \texttt{kubectl top pods -{}-containers} and the latency columns of
 \texttt{linkerd viz stat}. Otherwise say it was not measured.}
 
-% ---------------------------------------------------------------- 3
-\section{Summary}
+\subsection*{Limits of the delivered solution}
 
-\todo{What the project shows, in a few sentences: mTLS alone stops
-eavesdropping but not lateral movement; authorization policies on top of the
-mesh identities stop it without changing the application; the dashboard makes
-the refusals visible.}
-
-\todo{Did we meet the functional requirements from the stage 1 report? One
-line per requirement, or a short table.}
-
-\todo{Limits and possible extensions: phase 2 off by default, probe addresses
-tied to three nodes, six hours of metrics in linkerd-viz, policies tested only
-on Linkerd edge-26.11.1.}
+\todo{What the policies don't cover or where they are fragile: phase 2 off by
+default, probe addresses tied to three nodes, six hours of metrics in
+linkerd-viz, policies tested only on Linkerd edge-26.11.1. Further development
+belongs to the presentation; keep this to the limits we ran into.}
 
 \end{document}
