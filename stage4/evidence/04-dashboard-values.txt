@@ -1,0 +1,26 @@
+# The dashboard's queries (observability/grafana/dashboards/zero-trust.json), run through Grafana right after 03
+
+# Denied calls (since pod start)
+  (total) 12
+
+# Allowed requests/s
+  (total) 31.7995
+
+# Allowed with mTLS (share)
+  (total) 0.9937
+
+# Denied TCP (5 min)
+  (total) 0
+
+# Denied probes (5 min)
+  (total) 0
+
+# Denied calls per service (peak rate over the last 3 min)
+  deployment=cartservice 0.08
+  deployment=paymentservice 0.081
+
+# Who was denied, and where
+  deployment=cartservice, no_tls_reason=no_tls_from_remote, route_name=cartservice-read 3
+  client_id=adservice.default.serviceaccount.identity.linkerd.cluster.local, deployment=cartservice, route_name=cartservice-read 3
+  client_id=adservice.default.serviceaccount.identity.linkerd.cluster.local, deployment=paymentservice, route_name=paymentservice-charge 3
+  deployment=paymentservice, no_tls_reason=no_tls_from_remote, route_name=paymentservice-charge 3

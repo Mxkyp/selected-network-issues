@@ -87,6 +87,20 @@ On a cluster built from zero with `setup.ps1` (Windows, 339 s), then `kubectl ap
 `setup.sh` was only checked for syntax after these changes, not run on Linux or macOS.
 Performance overhead of the mesh and the policies is not measured yet.
 
+Evidence from a second run (policies on, three attack runs), in `stage4/evidence/`:
+
+| File | Shows |
+|---|---|
+| `01-components.txt` | linkerd-viz and Grafana pods, `linkerd viz check` passing |
+| `02-grafana-without-policy.txt` | Grafana's query fails with 403 without `prometheus-access.yaml`, the Prometheus proxy counts the denial for the Grafana identity, and the query works again after re-applying it |
+| `03-attack.txt` | three runs of `attack/attack.sh`: 12 calls, all gRPC status 7 |
+| `04-dashboard-values.txt` | every dashboard query run through Grafana right after the attack: 12 denied calls, 0 denied probes, 0 denied TCP |
+| `05-tap.txt` | `linkerd viz tap` working right after setup, every request `tls=true` |
+| `06-dashboard.png` | the dashboard after the attack (headless Edge screenshot) |
+
+The allowed-requests rate on the screenshot is lower than in `04`, because the two were taken
+at different moments; the denial numbers match.
+
 ## Limits
 
 - **Six hours of data.** The linkerd-viz Prometheus keeps metrics for 6 h and loses them when

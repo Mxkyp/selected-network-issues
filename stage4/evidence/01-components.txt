@@ -1,0 +1,36 @@
+# $ kubectl get pods -n linkerd-viz ; kubectl get pods -n grafana ; linkerd viz check
+NAME                            READY   STATUS    RESTARTS      AGE
+metrics-api-6b574f7856-bwqjz    2/2     Running   5 (38m ago)   41h
+prometheus-7b779f467b-4tptq     2/2     Running   2 (39m ago)   41h
+tap-b547fdb4c-tfp4d             2/2     Running   5 (38m ago)   41h
+tap-injector-5545c8848f-smx77   2/2     Running   2 (39m ago)   41h
+web-779d969b96-qv7rv            2/2     Running   2 (39m ago)   41h
+
+NAME                       READY   STATUS    RESTARTS      AGE
+grafana-77979cf5f9-6ggc4   2/2     Running   2 (39m ago)   41h
+
+linkerd-viz
+-----------
+√ linkerd-viz Namespace exists
+√ can initialize the client
+√ linkerd-viz ClusterRoles exist
+√ linkerd-viz ClusterRoleBindings exist
+√ tap API server has valid cert
+√ tap API server cert is valid for at least 60 days
+√ tap API service is running
+√ linkerd-viz pods are injected
+√ viz extension pods are running
+√ viz extension proxies are healthy
+‼ viz extension proxies are up-to-date
+    some proxies are not running the current version:
+	* metrics-api-6b574f7856-bwqjz (edge-26.11.1)
+	* prometheus-7b779f467b-4tptq (edge-26.11.1)
+	* tap-b547fdb4c-tfp4d (edge-26.11.1)
+	* tap-injector-5545c8848f-smx77 (edge-26.11.1)
+	* web-779d969b96-qv7rv (edge-26.11.1)
+    see https://linkerd.io/2/checks/#l5d-viz-proxy-cp-version for hints
+√ viz extension proxies and cli versions match
+√ prometheus is installed and configured correctly
+√ viz extension self-check
+
+Status check results are √
