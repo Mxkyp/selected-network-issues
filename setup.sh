@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique + Grafana. Only Docker is required.
 #   ./setup.sh             meshed (mTLS) but without authorization policies: the "before" state of the demo
-#   ./setup.sh --protect   the same, then turns the Zero-Trust policies on (./zero-trust.sh on)
+#   ./setup.sh --protect   the same with the Zero-Trust policies and the namespace default-deny on
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -92,6 +92,16 @@ fi
 # Also when reusing it: an interrupted install or a restart can leave it not yet available
 kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
 
+DENY_KEY=config.linkerd.io/default-inbound-policy
+if [ "$PROTECT" = 1 ] && [ -z "$(kubectl get deployment frontend -n default --ignore-not-found -o name)" ]; then
+  # New shop: put the policies and the namespace default in place first, so every pod starts
+  # protected and nothing has to be restarted (the proxy reads the default only when it starts).
+  echo ">> Applying the Zero-Trust policies and the namespace default-deny before the shop starts"
+  kubectl apply -f policies/ >/dev/null
+  kubectl apply -f policies/namespace-default-deny/admin-port.yaml >/dev/null
+  kubectl annotate namespace default "$DENY_KEY=deny" --overwrite >/dev/null
+fi
+
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 echo ">> Deploying Online Boutique with Linkerd proxies"
 linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f -
@@ -105,6 +115,10 @@ kubectl rollout status deployment/grafana -n grafana --timeout=300s
 
 if [ "$PROTECT" = 1 ]; then
   ./zero-trust.sh on
+  # A shop that was already running without the default-deny: switch it on, restarting every pod
+  if [ "$(kubectl get namespace default -o jsonpath="{.metadata.annotations.config\.linkerd\.io/default-inbound-policy}")" != deny ]; then
+    ./zero-trust.sh deny on
+  fi
 else
   # Attacker test pods for the "before" demo (attack/attack.sh, attack/verify.sh --expect-open)
   kubectl apply -f attack/attackers.yaml >/dev/null

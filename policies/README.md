@@ -10,9 +10,10 @@ Linkerd proxy before it reaches the application.
 
 Identities are the ServiceAccounts of the calling pods (namespace `default`).
 
-The matrix was taken from the Online Boutique source and confirmed against live traffic:
-`stage3/evidence/01-edges.txt` (which services talk to each other) and
-`stage3/evidence/02-methods.txt` (which methods each caller uses).
+The matrix was taken from the Online Boutique source and confirmed against live traffic
+(loadgenerator traffic plus orders placed by hand): `linkerd viz edges` showed which
+services talk to each other, and `linkerd viz tap` which methods each caller uses. The
+stage 3 report describes the capture.
 
 | Service | Pod port | Method | Allowed callers |
 |---|---|---|---|
@@ -64,7 +65,8 @@ authentication. That gives an attacker two different answers:
 ## Apply and remove
 
 `setup.sh` leaves the cluster meshed but unprotected on purpose, so the attack can be
-shown before and after (`setup.sh --protect` turns the policies on at the end).
+shown before and after (`setup.sh --protect` turns the policies and the namespace
+default-deny on).
 
 The simple way is `zero-trust.sh` in the repo root (Windows: `zero-trust.ps1`), which
 also creates the attacker test pods and keeps the right order:

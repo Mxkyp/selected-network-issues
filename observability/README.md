@@ -67,9 +67,6 @@ with **403**. Tested: the Prometheus proxy counted the denial for
 `grafana.grafana.serviceaccount.identity.linkerd.cluster.local`. That is why the `grafana`
 namespace is meshed (Grafana needs an identity) and the policy names that identity.
 
-`policies/namespace-default-deny/README.md` says Grafana needs no policy. That holds for the
-application pods only, not for the Prometheus it queries: there the policy above is required.
-
 ## Tested
 
 On a cluster built from zero with `setup.ps1` (Windows, 339 s), then `kubectl apply -f policies/`:
@@ -84,22 +81,15 @@ On a cluster built from zero with `setup.ps1` (Windows, 339 s), then `kubectl ap
 | `linkerd viz tap` right after setup | works, no pod restart |
 | Grafana without `prometheus-access.yaml` | every query fails with 403 |
 
-`setup.sh` was only checked for syntax after these changes, not run on Linux or macOS.
-Performance overhead of the mesh and the policies is not measured yet.
+A second run on an existing cluster (policies on, three attack runs) gave the same result,
+also with every dashboard query run through Grafana's API: 12 denied calls, 0 denied probes,
+0 denied TCP. In that run `linkerd viz check` passed, `linkerd viz tap` worked right after
+setup with every request `tls=true`, and Grafana's queries failed with 403 without
+`prometheus-access.yaml` and worked again after it was applied. The stage 3 report summarises
+the dashboard results and the 403.
 
-Evidence from a second run (policies on, three attack runs), in `stage4/evidence/`:
-
-| File | Shows |
-|---|---|
-| `01-components.txt` | linkerd-viz and Grafana pods, `linkerd viz check` passing |
-| `02-grafana-without-policy.txt` | Grafana's query fails with 403 without `prometheus-access.yaml`, the Prometheus proxy counts the denial for the Grafana identity, and the query works again after re-applying it |
-| `03-attack.txt` | three runs of `attack/attack.sh`: 12 calls, all gRPC status 7 |
-| `04-dashboard-values.txt` | every dashboard query run through Grafana right after the attack: 12 denied calls, 0 denied probes, 0 denied TCP |
-| `05-tap.txt` | `linkerd viz tap` working right after setup, every request `tls=true` |
-| `06-dashboard.png` | the dashboard after the attack (headless Edge screenshot) |
-
-The allowed-requests rate on the screenshot is lower than in `04`, because the two were taken
-at different moments; the denial numbers match.
+`setup.sh` was later run from scratch on Linux as well. The overhead of the mesh and the
+policies is measured in `stage4/performance/`.
 
 ## Limits
 

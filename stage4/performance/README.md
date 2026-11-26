@@ -36,11 +36,11 @@ memory they use. These are performance tests only; whether the attack is blocked
   the tables count only the shop pods.
 - `loadgenerator` scaled to 0; every deployment pinned to the same node in all variants;
   20 s warm-up per target after each switch.
-- Repeat with `python stage4/performance/run.py` (finished runs in `raw/` are skipped).
+- Repeat with `python3 stage4/performance/run.py` (finished runs in `raw/` are skipped).
 
 ## Findings
 
-- **mTLS adds latency (A to B, median p50 at 20 rps):** direct gRPC 0.8 to 1.7 ms, product page
+- **The mesh (proxies with mTLS) adds latency (A to B, median p50 at 20 rps):** direct gRPC 0.8 to 1.7 ms, product page
   10.9 to 22.7 ms, home page 16.4 to 28.3 ms.
 - **Policies add no measurable latency (B to C):** p50 differs by less than 1 ms on all targets.
 - **Page throughput is about the same** in all variants (home 45-47 rps, product 56-58 rps).
