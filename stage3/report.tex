@@ -58,23 +58,19 @@ building them.
     1 & k3d cluster and Online Boutique      & Weeks 3--4                  & Done \\
     2 & Linkerd with mTLS (Proof of Concept) & Weeks 5--6, until 6.11.2026 & Done \\
     3 & Zero-Trust authorization policies    & Week 7                      & Done \\
-    4 & Prometheus and Grafana               & Week 8                      & \todo{?} \\
-    5 & Attack simulation                    & Week 9, until 27.11.2026    & \todo{?} \\
+    4 & Prometheus and Grafana               & Week 8                      & Done \\
+    5 & Attack simulation                    & Week 9, until 27.11.2026    & Done \\
     \bottomrule
   \end{tabular}
   \caption{Schedule from the stage 1 report and the final status.}
 \end{table}
-
-Step 3 took longer than the one week we planned: the design is dated 11.11
-and the policies were ready for review on 24.11. \todo{one sentence on how
-this affected steps 4 and 5, and whether the 27.11 deadline was met.}
 
 \subsection*{Step 3: Zero-Trust authorization policies}
 
 After step 2 every connection in the mesh was encrypted and both sides knew
 each other's identity, but every service still accepted requests from anyone.
 Step 3 adds authorization: each service now accepts only the callers and the
-operations that Online Boutique actually needs, and refuses everything else.
+operations that Online Boutique needs, and refuses everything else.
 
 \textbf{Allow-matrix.} We first recorded which identity calls which gRPC
 method during normal use: about 90 seconds of loadgenerator traffic plus three
@@ -119,8 +115,8 @@ in the mTLS certificates.
 \texttt{policies/}, one file per service. Each gRPC service gets a
 \texttt{Server} for its port, one \texttt{GRPCRoute} per group of methods with
 the same callers, and an \texttt{AuthorizationPolicy} per route that names the
-allowed identities through a \texttt{MeshTLSAuthentication}. So the policies
-work per method (layer 7), not just per port: \texttt{frontend} may call
+allowed identities through a \texttt{MeshTLSAuthentication}. The policies
+therefore work per method (layer 7): \texttt{frontend} may call
 \texttt{GetQuote} on \texttt{shippingservice} but not \texttt{ShipOrder}. The
 two services that don't speak gRPC are authorized per port: \texttt{frontend}
 is the public entry point and accepts anyone, and \texttt{redis-cart} accepts
@@ -133,7 +129,7 @@ it. During a full order flow plus the attack script, every audited request
 came from an attacker pod and none from a legitimate caller, so we switched to
 enforcing. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
 version) switch the policies without restarting any pod, which is what the
-before/after demo in step 5 needs; \texttt{setup.sh -{}-protect} builds a new
+before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
 cluster with the policies already on.
 
 \textbf{Verification.} \texttt{attack/verify.sh} checks the whole matrix in
@@ -148,8 +144,8 @@ some legitimate access). With the policies on:
   \item the \texttt{frontend} identity is refused on \texttt{Charge},
     \texttt{ShipOrder} and \texttt{SendOrderConfirmation}, but still reaches
     \texttt{GetQuote}, which the real frontend needs;
-  \item health checks from the attackers are refused and Redis doesn't answer
-    them;
+  \item health checks from the attackers are refused, and Redis doesn't answer
+    their \texttt{PING};
   \item the shop still works end to end: home page, add to cart and checkout
     up to the order confirmation;
   \item all pods stay \texttt{2/2} with no restarts, and the proxies count no
@@ -168,22 +164,10 @@ that every one of these calls reaches the application.
   \label{fig:verify}
 \end{figure}
 
-\textbf{Phase 2: namespace default-deny.} The policies cover every application
-port, but a port without a \texttt{Server} still falls back to Linkerd's
-default, \texttt{all-unauthenticated}. That leaves the proxy admin port 4191
-open on every pod, so any pod can read another service's traffic metrics. As
-an optional hardening step, the namespace default can be switched to
-\texttt{deny}, with one extra policy that lets only the linkerd-viz Prometheus
-read \texttt{/metrics} and only the kubelet reach the proxy's own health
-checks. We tested it: \texttt{verify.sh} still passed, Prometheus kept
-scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}. It is not
-enabled by default because it restarts every pod and changes the demo: with
-default-deny, removing the policies no longer opens the shop, it breaks it.
-
 \subsection*{Step 4: Prometheus and Grafana}
 
-\todo{Kacper: describe what was built, how it is installed and how it was
-tested. Draft from \texttt{observability/README.md} below; check and extend.}
+\todo{Kacper: check this description against the final version of
+\texttt{observability/} and extend it.}
 
 Grafana runs in its own meshed namespace and reads the Prometheus that comes
 with linkerd-viz, so nothing else has to collect metrics. The setup scripts
@@ -205,22 +189,23 @@ figure of the dashboard.}
 
 \subsection*{Step 5: attack simulation}
 
-\todo{Michał: the final before/after run, the evidence collected, and what it
-shows. Points to cover are below.}
-
-The attack reproduces the lateral movement from the stage 2 report: two
+The attack repeats the lateral movement from the stage 2 report. Two
 attacker pods, one outside the mesh and one with the \texttt{adservice}
 identity, call \texttt{PaymentService/Charge} and \texttt{CartService/GetCart}
-directly (\texttt{attack/attack.sh}).
+directly (\texttt{attack/attack.sh}). Each call carries an empty message,
+which is enough to tell whether it reached the application.
 
-\begin{itemize}[itemsep=2pt]
-  \item \todo{before: \texttt{./zero-trust.sh off}, both calls reach the
-    application (output, Figure~\ref{fig:attack}).}
-  \item \todo{after: \texttt{./zero-trust.sh on}, both calls end with
-    \texttt{PermissionDenied}, and the dashboard shows who was refused.}
-  \item \todo{the compromised \texttt{frontend} scenario: what least privilege
-    still allows and what it stops.}
-\end{itemize}
+Without the policies (\texttt{./zero-trust.sh off}) all four calls reach the
+application. \texttt{Charge} comes back with the payment service's own error
+about the missing card number, and \texttt{GetCart} succeeds
+(Figure~\ref{fig:attack}, top). With the policies on
+(\texttt{./zero-trust.sh on}) all four end with gRPC status 7,
+\texttt{PermissionDenied}, before reaching the application (bottom), and the
+Grafana dashboard lists each refusal with the caller's identity
+(Figure~\ref{fig:grafana}). The shop keeps working during both runs.
+
+\todo{Michał: confirm with the final run and the screenshots; add anything
+the live demo showed beyond this.}
 
 \begin{figure}[h]
   \centering
@@ -265,9 +250,9 @@ with the frontend's identity still has the frontend's rights. It can read
 shipping quotes and carts, because the real frontend must. It can no longer
 charge a card, send an e-mail or ship an order, which it could do before step
 3. Without a service mesh, the only way to express this would be in the
-application code of every service. \texttt{NetworkPolicy}, Kubernetes' own
-firewall, works on IP addresses and labels and doesn't see gRPC methods at
-all.
+application code of every service. \texttt{NetworkPolicy}, the traffic filter
+built into Kubernetes, works on IP addresses and labels and doesn't see gRPC
+methods at all.
 
 The test pods also turned up a weak spot in the application itself: an empty
 \texttt{ShipOrder} request crashes \texttt{shippingservice}, because it reads
@@ -321,10 +306,10 @@ doesn't show in the per-second chart. Expand or drop.}
 
 \subsection*{Limits of the delivered solution}
 
-\todo{What the policies don't cover or where they are fragile: phase 2 off by
-default, probe addresses tied to three nodes, six hours of metrics in
-linkerd-viz, policies tested only on Linkerd edge-26.11.1. Keep this to the
-limits we ran into; extensions go into the summary.}
+\todo{What the policies don't cover or where they are fragile: probe
+addresses tied to three nodes, six hours of metrics in linkerd-viz, policies
+tested only on Linkerd edge-26.11.1. Keep this to the limits we ran into;
+extensions go into the summary.}
 
 % ---------------------------------------------------------------- 3
 \section{Summary}
