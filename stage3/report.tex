@@ -509,11 +509,11 @@ the shop's own CPU limits. The proxies of all shop pods together used about
 280 millicores of CPU at 20 requests per second.
 
 Proxy memory readings differed between measurements. In the performance runs
-the proxies used about 3.6~MiB each, as in stage 2, and on another cluster
-3--6~MiB each more than two hours after the shop was redeployed. Our
+the proxies used about 3.6~MiB each, as in stage 2, and 3--6~MiB on the same
+cluster more than two hours after the shop was redeployed. Separate
 \texttt{kubectl top} snapshots showed 12--16~MiB per proxy, the same with the
-policies on and off. We did not investigate why. All numbers come from one
-laptop and only support comparisons between the variants.
+policies on and off. We did not investigate why. The performance numbers come
+from one laptop and only support comparisons between the variants.
 
 \subsection*{Limits of the delivered solution}
 
