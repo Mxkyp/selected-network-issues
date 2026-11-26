@@ -102,9 +102,10 @@ if (Test-Command { kubectl get deployment metrics-api -n linkerd-viz }) {
 } else {
   Write-Host '>> Installing linkerd-viz'
   Install-Manifests { linkerd viz install } 'linkerd-viz'
-  kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
-  if ($LASTEXITCODE -ne 0) { throw 'linkerd-viz did not become available' }
 }
+# Also when reusing it: an interrupted install or a restart can leave it not yet available
+kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw 'linkerd-viz did not become available' }
 
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 Write-Host '>> Deploying Online Boutique with Linkerd proxies'

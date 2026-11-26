@@ -67,8 +67,8 @@ with **403**. Tested: the Prometheus proxy counted the denial for
 `grafana.grafana.serviceaccount.identity.linkerd.cluster.local`. That is why the `grafana`
 namespace is meshed (Grafana needs an identity) and the policy names that identity.
 
-This corrects `policies/namespace-default-deny/README.md`, which says Grafana needs no policy.
-That holds for the application pods, not for the Prometheus it queries.
+`policies/namespace-default-deny/README.md` says Grafana needs no policy. That holds for the
+application pods only, not for the Prometheus it queries: there the policy above is required.
 
 ## Tested
 

@@ -88,8 +88,9 @@ if kubectl get deployment metrics-api -n linkerd-viz >/dev/null 2>&1; then
 else
   echo ">> Installing linkerd-viz"
   linkerd viz install | kubectl apply -f -
-  kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
 fi
+# Also when reusing it: an interrupted install or a restart can leave it not yet available
+kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
 
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 echo ">> Deploying Online Boutique with Linkerd proxies"
