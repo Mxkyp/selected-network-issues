@@ -495,8 +495,10 @@ a fixed 20 requests per second, with the shop redeployed for each variant.
   \label{tab:perf}
 \end{table}
 
-mTLS roughly doubles the latency of a single call, adding about 1~ms per hop,
-which adds up to about 12~ms on a page that makes many calls. The policies
+The mesh (a proxy on each side of a call, with mTLS between them) roughly
+doubles the latency of a single call, adding about 1~ms per hop, which adds up
+to about 12~ms on a page that makes many calls. We did not measure the cost of
+the encryption separately from the rest of the proxies' work. The policies
 add no measurable latency on top of that: the medians differ by less than
 1~ms. The maximum throughput of the pages stayed the same in all three
 variants (45--47 and 56--58 requests per second), because it is limited by
