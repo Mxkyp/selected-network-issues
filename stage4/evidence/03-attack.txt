@@ -1,0 +1,21 @@
+# $ attack/attack.sh   (three runs, 20 s apart; policies on: ./zero-trust.sh status)
+Phase 1 (per-service policies): ON (11/11 Servers)
+Phase 2 (namespace default-deny): OFF
+
+# run 1, 15:43:53Z
+attacker-outside       -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  
+attacker-outside       -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  
+attacker-as-adservice  -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  client 10.42.0.38:55570: server: 10.42.2.37:4143: unauthorized request on route
+attacker-as-adservice  -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  client 10.42.0.38:36242: server: 10.42.0.37:4143: unauthorized request on route
+
+# run 2, 15:44:15Z
+attacker-outside       -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  
+attacker-outside       -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  
+attacker-as-adservice  -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  client 10.42.0.38:52214: server: 10.42.2.37:4143: unauthorized request on route
+attacker-as-adservice  -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  client 10.42.0.38:37156: server: 10.42.0.37:4143: unauthorized request on route
+
+# run 3, 15:44:38Z
+attacker-outside       -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  
+attacker-outside       -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  
+attacker-as-adservice  -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  client 10.42.0.38:57198: server: 10.42.2.37:4143: unauthorized request on route
+attacker-as-adservice  -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  client 10.42.0.38:56582: server: 10.42.0.37:4143: unauthorized request on route

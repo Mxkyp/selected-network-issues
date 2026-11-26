@@ -1,0 +1,8 @@
+# $ linkerd viz tap deploy/checkoutservice --to deploy/paymentservice | head -9
+# right after setup, no pod restart (linkerd-viz is installed before the shop)
+req id=0:0 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:0 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true :status=200 latency=2035µs
+end id=0:0 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true grpc-status=OK duration=200µs response-length=0B
+req id=0:1 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true :method=POST :authority=paymentservice:50051 :path=/hipstershop.PaymentService/Charge
+rsp id=0:1 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true :status=200 latency=1943µs
+end id=0:1 proxy=out src=10.42.1.35:33052 dst=10.42.2.37:50051 tls=true grpc-status=OK duration=173µs response-length=0B

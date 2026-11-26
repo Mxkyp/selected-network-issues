@@ -1,4 +1,4 @@
-# One-click setup (Windows PowerShell 5.1+ / pwsh): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
+# One-click setup (Windows PowerShell 5.1+ / pwsh): k3d cluster + Linkerd + Online Boutique + Grafana. Only Docker is required.
 #   .\setup.ps1            meshed (mTLS) but without authorization policies: the "before" state of the demo
 #   .\setup.ps1 -Protect   the same, then turns the Zero-Trust policies on (.\zero-trust.ps1 on)
 param([switch]$Protect)
@@ -96,6 +96,17 @@ if ($linkerdFound) {
   if ($LASTEXITCODE -ne 0) { throw 'Linkerd is not healthy' }
 }
 
+# Before the shop, so every app pod starts ready for `linkerd viz tap` without a restart
+if (Test-Command { kubectl get deployment metrics-api -n linkerd-viz }) {
+  Write-Host '>> linkerd-viz already installed, reusing it'
+} else {
+  Write-Host '>> Installing linkerd-viz'
+  Install-Manifests { linkerd viz install } 'linkerd-viz'
+}
+# Also when reusing it: an interrupted install or a restart can leave it not yet available
+kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw 'linkerd-viz did not become available' }
+
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 Write-Host '>> Deploying Online Boutique with Linkerd proxies'
 Install-Manifests { linkerd inject --native-sidecar app/kubernetes-manifests.yaml } 'Online Boutique'
@@ -103,6 +114,12 @@ Write-Host '>> Waiting for pods (can take a few minutes)'
 kubectl wait --for=condition=available deployment --all --timeout=600s
 if ($LASTEXITCODE -ne 0) { throw 'Some deployments did not become available' }
 kubectl get pods
+
+Write-Host '>> Deploying Grafana'
+kubectl apply -k observability/
+if ($LASTEXITCODE -ne 0) { throw 'Applying Grafana failed' }
+kubectl rollout status deployment/grafana -n grafana --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw 'Grafana did not become available' }
 
 $zeroTrust = Join-Path $PSScriptRoot 'zero-trust.ps1'
 if ($Protect) {
@@ -117,4 +134,4 @@ if ($Protect) {
   Write-Host 'To turn the Zero-Trust policies on: .\zero-trust.ps1 on   (or run .\setup.ps1 -Protect)'
 }
 
-Write-Host '>> Done. Shop at http://localhost:8080'
+Write-Host '>> Done. Shop at http://localhost:8080, Grafana at http://localhost:3000'

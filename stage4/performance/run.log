@@ -1,0 +1,86 @@
+18:51:04 switching to variant A (no mesh)
+18:52:04 variant A ready: 11 app pods, 0 policy Servers; warming up
+18:54:11 A-r1-home-fixed: 19.9 rps, p50 16.7 / p90 116.2 / p99 400.0 ms, codes {'200': 1200}, body 10499-10499
+18:55:17 A-r1-home-max: 44.4 rps, p50 186.4 / p90 244.9 / p99 374.4 ms, codes {'200': 2669}, body 10479-10499
+18:56:23 A-r1-product-fixed: 19.9 rps, p50 10.9 / p90 13.7 / p99 35.0 ms, codes {'200': 1200}, body 7941-8019
+18:57:28 A-r1-product-max: 49.1 rps, p50 182.9 / p90 204.9 / p99 287.9 ms, codes {'200': 2950}, body 7700-8019
+18:58:34 A-r1-grpc-fixed: 19.9 rps, p50 0.8 / p90 1.6 / p99 2.0 ms, codes {'200': 1200}, body 1370-1370
+18:59:39 A-r1-grpc-max: 960.3 rps, p50 0.8 / p90 10.5 / p99 97.8 ms, codes {'200': 57622}, body 1370-1370
+18:59:44 round 1 variant A done
+18:59:44 switching to variant B (mesh (mTLS))
+19:00:53 variant B ready: 11 app pods, 0 policy Servers; warming up
+19:03:00 B-r1-home-fixed: 19.9 rps, p50 28.2 / p90 117.8 / p99 500.0 ms, codes {'200': 1200}, body 10499-10499
+19:04:06 B-r1-home-max: 47.2 rps, p50 171.2 / p90 220.9 / p99 354.3 ms, codes {'200': 2832}, body 10499-10499
+19:05:12 B-r1-product-fixed: 19.9 rps, p50 22.7 / p90 25.9 / p99 95.0 ms, codes {'200': 1200}, body 7941-8019
+19:06:17 B-r1-product-max: 58.5 rps, p50 115.0 / p90 194.6 / p99 245.5 ms, codes {'200': 3514}, body 7941-8019
+19:07:23 B-r1-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.1 / p99 2.9 ms, codes {'200': 1200}, body 1370-1370
+19:08:28 B-r1-grpc-max: 1160.7 rps, p50 2.2 / p90 3.5 / p99 77.9 ms, codes {'200': 69667}, body 1370-1370
+19:08:33 round 1 variant B done
+19:08:33 switching to variant C (mesh + policies)
+19:09:05 variant C ready: 11 app pods, 11 policy Servers; warming up
+19:11:09 C-r1-home-fixed: 19.9 rps, p50 27.4 / p90 73.2 / p99 266.7 ms, codes {'200': 1200}, body 10499-10499
+19:12:15 C-r1-home-max: 45.5 rps, p50 171.4 / p90 232.0 / p99 769.8 ms, codes {'200': 2732}, body 10499-10499
+19:13:20 C-r1-product-fixed: 19.9 rps, p50 22.6 / p90 24.9 / p99 31.0 ms, codes {'200': 1200}, body 7941-8019
+19:14:26 C-r1-product-max: 57.7 rps, p50 114.0 / p90 194.9 / p99 288.5 ms, codes {'200': 3469}, body 7941-8019
+19:15:31 C-r1-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.2 / p99 2.9 ms, codes {'200': 1200}, body 1370-1370
+19:16:37 C-r1-grpc-max: 1159.9 rps, p50 2.2 / p90 3.5 / p99 77.8 ms, codes {'200': 69651}, body 1370-1370
+19:16:42 round 1 variant C done
+19:16:42 switching to variant A (no mesh)
+19:17:58 variant A ready: 11 app pods, 0 policy Servers; warming up
+19:20:06 A-r2-home-fixed: 19.9 rps, p50 16.4 / p90 101.6 / p99 350.0 ms, codes {'200': 1200}, body 10499-10499
+19:21:11 A-r2-home-max: 46.3 rps, p50 165.6 / p90 225.2 / p99 333.7 ms, codes {'200': 2784}, body 10499-10499
+19:22:17 A-r2-product-fixed: 19.9 rps, p50 10.8 / p90 13.2 / p99 35.0 ms, codes {'200': 1200}, body 7941-8019
+19:23:22 A-r2-product-max: 58.2 rps, p50 118.3 / p90 191.2 / p99 275.6 ms, codes {'200': 3493}, body 7941-8019
+19:24:28 A-r2-grpc-fixed: 19.9 rps, p50 0.8 / p90 1.6 / p99 2.0 ms, codes {'200': 1200}, body 1370-1370
+19:25:33 A-r2-grpc-max: 970.1 rps, p50 0.8 / p90 36.9 / p99 68.7 ms, codes {'200': 58262}, body 1370-1370
+19:25:38 round 2 variant A done
+19:25:38 switching to variant B (mesh (mTLS))
+19:26:47 variant B ready: 11 app pods, 0 policy Servers; warming up
+19:28:54 B-r2-home-fixed: 19.9 rps, p50 28.6 / p90 130.8 / p99 533.3 ms, codes {'200': 1200}, body 10499-10499
+19:30:00 B-r2-home-max: 45.8 rps, p50 184.8 / p90 240.1 / p99 366.8 ms, codes {'200': 2760}, body 10499-10499
+19:31:06 B-r2-product-fixed: 19.9 rps, p50 22.7 / p90 24.9 / p99 44.0 ms, codes {'200': 1200}, body 7941-8019
+19:32:11 B-r2-product-max: 55.8 rps, p50 115.4 / p90 194.9 / p99 803.8 ms, codes {'200': 3351}, body 7941-8019
+19:33:17 B-r2-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.1 / p99 3.0 ms, codes {'200': 1200}, body 1370-1370
+19:34:22 B-r2-grpc-max: 1146.8 rps, p50 2.2 / p90 3.6 / p99 77.8 ms, codes {'200': 68875}, body 1370-1370
+19:34:27 round 2 variant B done
+19:34:27 switching to variant C (mesh + policies)
+19:34:58 variant C ready: 11 app pods, 11 policy Servers; warming up
+19:37:02 C-r2-home-fixed: 19.9 rps, p50 27.7 / p90 91.3 / p99 275.0 ms, codes {'200': 1200}, body 10499-10499
+19:38:08 C-r2-home-max: 44.6 rps, p50 183.4 / p90 243.0 / p99 592.9 ms, codes {'200': 2685}, body 10499-10499
+19:39:14 C-r2-product-fixed: 19.9 rps, p50 22.6 / p90 24.9 / p99 36.0 ms, codes {'200': 1200}, body 7941-8019
+19:40:19 C-r2-product-max: 57.0 rps, p50 115.4 / p90 194.4 / p99 261.5 ms, codes {'200': 3431}, body 7941-8019
+19:41:25 C-r2-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.3 / p99 3.0 ms, codes {'200': 1200}, body 1370-1370
+19:42:30 C-r2-grpc-max: 1144.7 rps, p50 2.2 / p90 3.7 / p99 77.7 ms, codes {'200': 68687}, body 1370-1370
+19:42:35 round 2 variant C done
+19:42:35 switching to variant A (no mesh)
+19:43:51 variant A ready: 11 app pods, 0 policy Servers; warming up
+19:45:59 A-r3-home-fixed: 19.9 rps, p50 16.2 / p90 108.1 / p99 333.3 ms, codes {'200': 1200}, body 10499-10499
+19:47:05 A-r3-home-max: 45.3 rps, p50 181.9 / p90 240.4 / p99 432.4 ms, codes {'200': 2717}, body 10499-10499
+19:48:10 A-r3-product-fixed: 19.9 rps, p50 10.9 / p90 13.5 / p99 38.3 ms, codes {'200': 1200}, body 7941-8019
+19:49:16 A-r3-product-max: 58.4 rps, p50 119.1 / p90 192.8 / p99 266.5 ms, codes {'200': 3510}, body 7941-8019
+19:50:21 A-r3-grpc-fixed: 19.9 rps, p50 0.8 / p90 1.5 / p99 2.0 ms, codes {'200': 1200}, body 1370-1370
+19:51:27 A-r3-grpc-max: 970.8 rps, p50 0.8 / p90 14.9 / p99 89.2 ms, codes {'200': 58247}, body 1370-1370
+19:51:32 round 3 variant A done
+19:51:32 switching to variant B (mesh (mTLS))
+19:52:39 variant B ready: 11 app pods, 0 policy Servers; warming up
+19:54:47 B-r3-home-fixed: 19.9 rps, p50 28.3 / p90 92.9 / p99 450.0 ms, codes {'200': 1200}, body 10499-10499
+19:55:53 B-r3-home-max: 47.8 rps, p50 175.6 / p90 227.5 / p99 351.2 ms, codes {'200': 2868}, body 10499-10499
+19:56:58 B-r3-product-fixed: 19.9 rps, p50 22.8 / p90 26.9 / p99 52.5 ms, codes {'200': 1200}, body 7941-8019
+19:58:04 B-r3-product-max: 48.5 rps, p50 137.7 / p90 197.6 / p99 998.8 ms, codes {'200': 2913}, body 7941-8019
+19:59:09 B-r3-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.3 / p99 2.9 ms, codes {'200': 1200}, body 1370-1370
+20:00:15 B-r3-grpc-max: 1144.1 rps, p50 2.2 / p90 3.7 / p99 77.9 ms, codes {'200': 68650}, body 1370-1370
+20:00:20 round 3 variant B done
+20:00:20 switching to variant C (mesh + policies)
+20:00:50 variant C ready: 11 app pods, 11 policy Servers; warming up
+20:02:54 C-r3-home-fixed: 19.9 rps, p50 27.1 / p90 59.0 / p99 241.7 ms, codes {'200': 1200}, body 10499-10499
+20:03:59 C-r3-home-max: 45.4 rps, p50 182.1 / p90 240.1 / p99 426.4 ms, codes {'200': 2731}, body 10499-10499
+20:05:05 C-r3-product-fixed: 19.9 rps, p50 22.5 / p90 24.9 / p99 31.7 ms, codes {'200': 1200}, body 7941-8019
+20:06:10 C-r3-product-max: 52.4 rps, p50 138.8 / p90 196.4 / p99 269.0 ms, codes {'200': 3148}, body 7941-8019
+20:07:16 C-r3-grpc-fixed: 19.9 rps, p50 1.7 / p90 2.0 / p99 2.9 ms, codes {'200': 1200}, body 1370-1370
+20:08:21 C-r3-grpc-max: 1157.3 rps, p50 2.2 / p90 3.6 / p99 77.8 ms, codes {'200': 69437}, body 1370-1370
+20:08:26 round 3 variant C done
+20:08:26 restoring the cluster
+20:08:26 switching to variant C (mesh + policies)
+20:09:13 variant C ready: 11 app pods, 11 policy Servers; warming up
+20:12:12 restored: variant C, load generator running, pins and test pods removed
+20:12:12 ALL DONE

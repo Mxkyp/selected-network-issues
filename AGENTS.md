@@ -63,7 +63,7 @@ Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6â€
 | A new cluster **without** policies (mTLS only, the "before" state of the demo) | `./setup.sh` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1` |
 | Show what is on | `./zero-trust.sh status` | `powershell -ExecutionPolicy Bypass -File .\zero-trust.ps1 status` |
 | Policies on / off on a running cluster | `./zero-trust.sh on` / `off` | same with `zero-trust.ps1 on` / `off` |
-| Optional phase 2, namespace default-deny (restarts all pods; install `linkerd-viz` first, see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
+| Optional phase 2, namespace default-deny (restarts all pods; see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
 | Show the attack (lateral movement from attacker pods) | `attack/attack.sh` | from Git Bash |
 | Check the policies end to end | `attack/verify.sh` (policies on) or `attack/verify.sh --expect-open` (policies off) | from Git Bash |
 | Pause / resume | `.tools/k3d cluster stop sina`, then `./setup.sh` | `.tools\k3d.exe cluster stop sina`, then `setup.ps1` again |
@@ -71,8 +71,9 @@ Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6â€
 - Re-running `setup.sh` never removes policies that are already on; use `zero-trust.sh off` for the "before" state on an existing cluster.
 - `setup.sh` is idempotent: re-run it after a Docker restart; it starts a stopped cluster and recreates pods that came up without the Linkerd proxy.
 - `kubectl`, `k3d` and `linkerd` are in `.tools/` (when they were not already installed): add it to the PATH to use them by hand, `export PATH="$PWD/.tools:$PATH"` (PowerShell: `$env:PATH = "$PWD\.tools;$env:PATH"`).
-- The shop is at http://localhost:8080.
-- The allow-matrix and how the policies work: `policies/README.md`. Cluster details and troubleshooting: `cluster/README.md`.
+- The shop is at http://localhost:8080. The setup scripts also install `linkerd-viz` and Grafana: the "Zero Trust: allowed vs denied" dashboard is at http://localhost:3000 (a cluster created before step 4 needs `.tools/k3d cluster edit sina --port-add 3000:3000@loadbalancer` once).
+- The allow-matrix and how the policies work: `policies/README.md`. The dashboard, its panels and limits: `observability/README.md`. Cluster details and troubleshooting: `cluster/README.md`.
+- Performance tests (no mesh vs mTLS vs mTLS with policies): what was tested, the results and how to repeat them are in `stage4/performance/README.md`.
 
 ## 6. Instructions for AI Assistants (Current Phase)
 

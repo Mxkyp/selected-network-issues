@@ -1,0 +1,19 @@
+# Apply with: kubectl apply -k observability/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - grafana.yaml
+  - prometheus-access.yaml
+configMapGenerator:
+  - name: grafana-datasources
+    namespace: grafana
+    files:
+      - grafana/datasources.yaml
+  - name: grafana-dashboard-provider
+    namespace: grafana
+    files:
+      - grafana/dashboard-provider.yaml
+  - name: grafana-dashboards
+    namespace: grafana
+    files:
+      - grafana/dashboards/zero-trust.json

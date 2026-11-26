@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique. Only Docker is required.
+# One-click setup (Linux/macOS): k3d cluster + Linkerd + Online Boutique + Grafana. Only Docker is required.
 #   ./setup.sh             meshed (mTLS) but without authorization policies: the "before" state of the demo
 #   ./setup.sh --protect   the same, then turns the Zero-Trust policies on (./zero-trust.sh on)
 set -euo pipefail
@@ -82,12 +82,26 @@ else
   linkerd check
 fi
 
+# Before the shop, so every app pod starts ready for `linkerd viz tap` without a restart
+if kubectl get deployment metrics-api -n linkerd-viz >/dev/null 2>&1; then
+  echo ">> linkerd-viz already installed, reusing it"
+else
+  echo ">> Installing linkerd-viz"
+  linkerd viz install | kubectl apply -f -
+fi
+# Also when reusing it: an interrupted install or a restart can leave it not yet available
+kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
+
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 echo ">> Deploying Online Boutique with Linkerd proxies"
 linkerd inject --native-sidecar app/kubernetes-manifests.yaml | kubectl apply -f -
 echo ">> Waiting for pods (can take a few minutes)"
 kubectl wait --for=condition=available deployment --all --timeout=600s
 kubectl get pods
+
+echo ">> Deploying Grafana"
+kubectl apply -k observability/
+kubectl rollout status deployment/grafana -n grafana --timeout=300s
 
 if [ "$PROTECT" = 1 ]; then
   ./zero-trust.sh on
@@ -100,4 +114,4 @@ else
   echo "To turn the Zero-Trust policies on: ./zero-trust.sh on   (or run ./setup.sh --protect)"
 fi
 
-echo ">> Done. Shop at http://localhost:8080"
+echo ">> Done. Shop at http://localhost:8080, Grafana at http://localhost:3000"
