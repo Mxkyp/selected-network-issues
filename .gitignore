@@ -15,3 +15,6 @@
 /stage*/*.toc
 /stage*/*.vrb
 /stage*/*.pdf
+
+# Project Resources archive built by make-resources-archive.sh
+/project-resources-*.zip
