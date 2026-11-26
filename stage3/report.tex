@@ -10,6 +10,7 @@
 \usepackage{caption}
 \usepackage{microtype}
 \usepackage{fancyvrb}
+\usepackage{float}
 \input{common.tex}
 \usepackage[hidelinks]{hyperref}
 
@@ -57,7 +58,7 @@ root.
 % ---------------------------------------------------------------- 1
 \section{Work progress}
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \small
   \begin{tabular}{cllll}
@@ -95,7 +96,7 @@ is the result. The
 callers are Kubernetes ServiceAccounts: Online Boutique gives each service its
 own, and Linkerd puts it into the service's mTLS certificate as its identity.
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \small
   \begin{tabular}{lll}
@@ -153,7 +154,22 @@ port: \texttt{frontend} is the public entry point and accepts anyone, and
 \texttt{redis-cart} accepts only \texttt{cartservice}.
 Listing~\ref{lst:payment} shows the rule for \texttt{Charge}.
 
-\begin{figure}[h]
+
+\textbf{Rollout.} We applied the policies first in audit mode, in which the
+proxy lets a request through but records that the policies would have denied
+it, both in its metrics and in its log. We then placed an order through the
+shop and ran the attacker pods described below. On the nine gRPC services
+and on \texttt{redis-cart}, every audited request came from an attacker pod
+and none from a legitimate caller, so we switched to enforcing. The
+\texttt{frontend} reports
+differently: its policy is attached to the whole \texttt{Server} rather than
+to a route, and in audit mode the proxy lists all such traffic as audited,
+including the loadgenerator's, even though the policy allows it. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
+version) switch the policies without restarting any pod, which is what the
+before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
+cluster with the policies and the namespace default-deny (below) already on.
+
+\begin{figure}[H]
 \begin{Verbatim}[fontsize=\footnotesize,frame=single,framesep=2mm]
 kind: Server                                  kind: AuthorizationPolicy
 metadata: {name: paymentservice}              metadata: {name: paymentservice-charge}
@@ -183,20 +199,6 @@ spec:                                         kind: MeshTLSAuthentication
 \label{lst:payment}
 \end{figure}
 
-\textbf{Rollout.} We applied the policies first in audit mode, in which the
-proxy lets a request through but records that the policies would have denied
-it, both in its metrics and in its log. We then placed an order through the
-shop and ran the attacker pods described below. On the nine gRPC services
-and on \texttt{redis-cart}, every audited request came from an attacker pod
-and none from a legitimate caller, so we switched to enforcing. The
-\texttt{frontend} reports
-differently: its policy is attached to the whole \texttt{Server} rather than
-to a route, and in audit mode the proxy lists all such traffic as audited,
-including the loadgenerator's, even though the policy allows it. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
-version) switch the policies without restarting any pod, which is what the
-before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
-cluster with the policies and the namespace default-deny (below) already on.
-
 \textbf{Verification.} Three test pods act as attackers: one outside the mesh
 (no identity), one running as \texttt{adservice} (a compromised minor
 service) and one running as \texttt{frontend} (a compromised service that has
@@ -211,9 +213,9 @@ reached the application; 7 (\texttt{PERMISSION\_DENIED}) means the proxy
 refused it; 5 (\texttt{NOT\_FOUND}) is what the proxy returns when a request
 matches no route.
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
-  \small
+  \footnotesize
   \begin{tabular}{p{8.6cm}rl}
     \toprule
     Check & Cases & Result with the policies on \\
@@ -298,7 +300,7 @@ counted 12. A second run on an existing cluster gave the same result, with no
 denied health checks and no denied TCP connections; this time every dashboard
 query was also run through Grafana's API, with the same numbers.
 
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
   \evidence{10-grafana.png}{\linewidth}{9cm}{Grafana dashboard right after
     \texttt{attack/attack.sh}}
@@ -337,7 +339,7 @@ with the caller's identity (Figure~\ref{fig:grafana}). That the shop works
 in both states is checked by \texttt{verify.sh}, run once with the policies
 off and once with them on (Table~\ref{tab:verify}).
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \small
   \begin{tabular}{llll}
@@ -476,7 +478,7 @@ without the mesh, with mTLS only, and with mTLS and the policies
 (Table~\ref{tab:perf}). Each number is the median of three 60-second runs at
 a fixed 20 requests per second, with the shop redeployed for each variant.
 
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \small
   \begin{tabular}{lrrr}
@@ -540,9 +542,16 @@ on, so does the proxy's admin port. The attack from stage 2 ends with \texttt{Pe
 shop keeps working. None of this needed a change to the application. The Grafana
 dashboard from step 4 shows each refusal and who caused it.
 
-\begin{table}[h]
+The project could be taken further in a few directions that follow from the
+limits above: a separate Prometheus with longer retention and alerts on
+denied requests, health-check rules that don't depend on node addresses, and
+running \texttt{verify.sh} automatically after every change to the policies,
+so that a missed caller shows up before it breaks the shop.
+
+
+\begin{table}[H]
   \centering
-  \small
+  \footnotesize
   \begin{tabular}{p{5.2cm}p{8.8cm}}
     \toprule
     Requirement (stage 1) & How it is met \\
@@ -563,11 +572,5 @@ dashboard from step 4 shows each refusal and who caused it.
   \end{tabular}
   \caption{The functional requirements from the stage 1 report.}
 \end{table}
-
-The project could be taken further in a few directions that follow from the
-limits above: a separate Prometheus with longer retention and alerts on
-denied requests, health-check rules that don't depend on node addresses, and
-running \texttt{verify.sh} automatically after every change to the policies,
-so that a missed caller shows up before it breaks the shop.
 
 \end{document}
