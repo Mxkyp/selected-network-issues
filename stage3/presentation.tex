@@ -511,19 +511,20 @@ per call between services. The authorization check on top of it is free within
 the precision of a laptop measurement.}
 
 \begin{frame}{What we learned}
+  \vfill
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.465\textwidth}
       \begin{block}{Policies}
-        \begin{itemize}\setlength{\itemsep}{2pt}
+        \begin{itemize}\setlength{\itemsep}{9pt}
           \item Once a port has a policy, every request needs a route, so per-method rules cost little extra
           \item Health checks come from the kubelet, which has no identity: allowed by node address
           \item An empty \texttt{ShipOrder} crashes \texttt{shippingservice}; without policies any pod can restart it
         \end{itemize}
       \end{block}
     \end{column}
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.465\textwidth}
       \begin{block}{Running it}
-        \begin{itemize}\setlength{\itemsep}{2pt}
+        \begin{itemize}\setlength{\itemsep}{9pt}
           \item Our first test script passed on a broken setup; we broke the cluster on purpose to fix it
           \item Monitoring needs its own authorization: Grafana got 403 from Prometheus
           \item 6--7 GB for Docker; an overloaded cluster starts pods without a proxy, and the policies treat them as outsiders
@@ -531,6 +532,7 @@ the precision of a laptop measurement.}
       \end{block}
     \end{column}
   \end{columns}
+  \vfill
 \end{frame}
 \note{Pick two or three of these depending on time. The ShipOrder crash is a
 good one: the policies also protect the application from its own bugs, because
@@ -541,10 +543,11 @@ only checkout may send that request at all.}
 % =============================================================================
 
 \begin{frame}{Limits and what could come next}
+  \vfill
   \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.465\textwidth}
       \begin{alertblock}{Limits}
-        \begin{itemize}\setlength{\itemsep}{2pt}
+        \begin{itemize}\setlength{\itemsep}{9pt}
           \item Health-check rules tied to our three nodes
           \item A hijacked service keeps its own rights
           \item linkerd-viz Prometheus keeps 6 hours of data
@@ -552,9 +555,9 @@ only checkout may send that request at all.}
         \end{itemize}
       \end{alertblock}
     \end{column}
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.465\textwidth}
       \begin{exampleblock}{Further development}
-        \begin{itemize}\setlength{\itemsep}{2pt}
+        \begin{itemize}\setlength{\itemsep}{9pt}
           \item Separate Prometheus with long retention and alerts on denials
           \item Health-check rules that don't depend on node addresses
           \item \texttt{verify.sh} run automatically after every policy change
@@ -563,6 +566,7 @@ only checkout may send that request at all.}
       \end{exampleblock}
     \end{column}
   \end{columns}
+  \vfill
 \end{frame}
 \note{The limits are the honest list from the report. The last extension is the
 natural next step for a bigger system: we built the allow-matrix by watching
@@ -572,40 +576,21 @@ the traffic, and that could be automated.}
 \section{Demo}
 % =============================================================================
 
-\begin{frame}[fragile]{Live demo}
-  \begin{columns}[T,onlytextwidth]
-    \begin{column}{0.56\textwidth}
-\begin{lstlisting}[basicstyle=\ttfamily\fontsize{6.5}{8}\selectfont]
-./zero-trust.sh status    # what is on
-./zero-trust.sh off       # 1. before: mTLS only
-attack/attack.sh          #    the attack gets through
-./zero-trust.sh on        # 2. after: policies, no restarts
-attack/attack.sh          #    PERMISSION_DENIED
-# 3. Grafana at localhost:3000: who was denied
-# 4. the shop still works: localhost:8080
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.40\textwidth}
-      \begin{block}{What to watch}
-        \begin{itemize}\setlength{\itemsep}{2pt}
-          \item The same four calls, status 2/0 before, 7 after
-          \item Denied calls appear on the dashboard within about 15 s
-          \item An order placed in the shop goes through with the policies on
-        \end{itemize}
-      \end{block}
-    \end{column}
-  \end{columns}
-
-  \vspace{8pt}
+\begin{frame}
   \centering
-  \begin{beamercolorbox}[sep=8pt,center,rounded=true]{title}
-    {\Large \textbf{Live demo}}\quad{\small then questions}
+  \vspace{1.2cm}
+  \begin{beamercolorbox}[sep=14pt,center,shadow=true,rounded=true]{title}
+    {\LARGE \textbf{Live demo}}
   \end{beamercolorbox}
 \end{frame}
-\note{Cluster prepared before the presentation with ./setup.sh (no --protect),
-so on/off take seconds. Run the attack two or three times after switching the
-policies on, about 15 seconds apart: the first denial of a new caller doesn't
-show on the per-second chart. If anything fails live, go back to the Step 4
-and Step 5 slides, which show the same output.}
+\note{Switch to the laptop with the cluster. Prepare it before the
+presentation with ./setup.sh (no --protect), so on/off take seconds.
+(1) ./zero-trust.sh status; (2) ./zero-trust.sh off, attack/attack.sh: the
+calls reach the application (status 2 and 0); (3) ./zero-trust.sh on,
+attack/attack.sh two or three times about 15 s apart: status 7, the first
+denial of a new caller doesn't show on the per-second chart; (4) Grafana at
+localhost:3000: who was denied; (5) the shop at localhost:8080 still takes an
+order. If anything fails, go back to the Step 4 and Step 5 slides, which show
+the same output. Then questions.}
 
 \end{document}
