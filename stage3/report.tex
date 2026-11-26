@@ -9,6 +9,7 @@
 \usepackage{enumitem}
 \usepackage{caption}
 \usepackage{microtype}
+\usepackage{fancyvrb}
 \input{common.tex}
 \usepackage[hidelinks]{hyperref}
 
@@ -47,9 +48,11 @@ monitoring dashboard and the attack simulation, and what we learned while
 building them.
 
 Everything runs on a local k3d cluster with one server and two agent nodes.
-The setup scripts pin the versions we tested: k3d v5.9.0, kubectl v1.37.2,
-Linkerd edge-26.11.1, Gateway API v1.2.1, Online Boutique v0.10.7 and
-Grafana 11.3.0.
+The setup scripts pin k3d v5.9.0, kubectl v1.37.2, Linkerd edge-26.11.1 and
+Gateway API v1.2.1, and the manifests pin Online Boutique v0.10.7 and Grafana
+11.3.0. The scripts, policies and evidence named below are in the project
+repository, \url{https://github.com/Mxkyp/selected-network-issues}; paths are
+relative to its root.
 
 % ---------------------------------------------------------------- 1
 \section{Work progress}
@@ -80,11 +83,15 @@ Step 3 adds authorization: each service now accepts only the callers and the
 operations that Online Boutique needs, and refuses everything else.
 
 \textbf{Allow-matrix.} We first recorded which identity calls which gRPC
-method during normal use: about 90 seconds of loadgenerator traffic plus three
-orders placed by hand, captured with \texttt{linkerd viz tap}, which streams
-the requests passing through the proxies. This gave the 16
-service-to-service connections already seen in step 2, broken down into 20
-distinct (caller, method) pairs. Table~\ref{tab:matrix} is the result. The
+method during normal use: about 90 seconds of traffic from
+\texttt{loadgenerator}, the shop's built-in component that simulates
+customers, plus three orders placed by hand. We captured it with
+\texttt{linkerd viz tap}, which streams the requests passing through the
+proxies. Of the 16 connections between services seen in step 2, 14 use gRPC,
+and they broke down into 20 distinct (caller, method) pairs; the other two
+are \texttt{loadgenerator} to \texttt{frontend} (HTTP) and
+\texttt{cartservice} to \texttt{redis-cart} (TCP). Table~\ref{tab:matrix}
+is the result. The
 callers are Kubernetes ServiceAccounts: Online Boutique gives each service its
 own, and Linkerd puts it into the service's mTLS certificate as its identity.
 
@@ -118,7 +125,10 @@ own, and Linkerd puts it into the service's mTLS certificate as its identity.
     \texttt{service} suffix: ``checkout'' is \texttt{checkoutservice}.
     \texttt{SearchProducts} exists in the API, but nothing in the shop calls
     it. The kubelet, the node agent that runs the health checks, has no mesh
-    identity, so it is recognised by the address its checks come from.
+    identity, so it is recognised by the address its checks come from. Each
+    node has its own pod network (\texttt{10.42.0.0/24},
+    \texttt{10.42.1.0/24}, \texttt{10.42.2.0/24}), and the checks come from
+    its gateway address (\texttt{10.42.0.1} and so on).
     \texttt{loadgenerator} receives no traffic and gets no policy.}
   \label{tab:matrix}
 \end{table}
@@ -141,13 +151,48 @@ may call \texttt{GetQuote} on \texttt{shippingservice} but not
 \texttt{ShipOrder}. The two services that don't speak gRPC are authorized per
 port: \texttt{frontend} is the public entry point and accepts anyone, and
 \texttt{redis-cart} accepts only \texttt{cartservice}.
+Listing~\ref{lst:payment} shows the rule for \texttt{Charge}.
+
+\begin{figure}[h]
+\begin{Verbatim}[fontsize=\footnotesize,frame=single,framesep=2mm]
+kind: Server                                  kind: AuthorizationPolicy
+metadata: {name: paymentservice}              metadata: {name: paymentservice-charge}
+spec:                                         spec:
+  podSelector:                                  targetRef:
+    matchLabels: {app: paymentservice}            kind: GRPCRoute
+  port: 50051                                     name: paymentservice-charge
+  proxyProtocol: gRPC                           requiredAuthenticationRefs:
+---                                             - kind: MeshTLSAuthentication
+kind: GRPCRoute                                   name: callers-checkout
+metadata: {name: paymentservice-charge}       ---
+spec:                                         kind: MeshTLSAuthentication
+  parentRefs:                                 metadata: {name: callers-checkout}
+  - {kind: Server, name: paymentservice}      spec:
+  rules:                                        identityRefs:
+  - matches:                                    - kind: ServiceAccount
+    - method:                                     name: checkoutservice
+        service: hipstershop.PaymentService
+        method: Charge
+\end{Verbatim}
+\captionsetup{name=Listing}
+\caption{The four resources that let only \texttt{checkoutservice} call
+  \texttt{PaymentService/Charge}, shortened (no \texttt{apiVersion},
+  namespace or labels). The same file has a second route and policy for the
+  health check. Full version: \texttt{policies/paymentservice.yaml} and
+  \texttt{policies/00-authentications.yaml}.}
+\label{lst:payment}
+\end{figure}
 
 \textbf{Rollout.} We applied the policies first in audit mode, in which the
 proxy lets a request through but records that the policies would have denied
 it, both in its metrics and in its log. We then placed an order through the
-shop and ran the attacker pods described below. Every audited request came
-from an attacker pod and none from a legitimate caller, so we switched to
-enforcing. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
+shop and ran the attacker pods described below. On the nine gRPC services
+and on \texttt{redis-cart}, every audited request came from an attacker pod
+and none from a legitimate caller, so we switched to enforcing
+(\texttt{stage3/evidence/04-audit.txt}). The \texttt{frontend} reports
+differently: its policy is attached to the whole \texttt{Server} rather than
+to a route, and in audit mode the proxy lists all such traffic as audited,
+including the loadgenerator's, even though the policy allows it. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
 version) switch the policies without restarting any pod, which is what the
 before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
 cluster with the policies already on.
@@ -157,10 +202,14 @@ cluster with the policies already on.
 service) and one running as \texttt{frontend} (a compromised service that has
 some legitimate access). \texttt{attack/verify.sh} uses them to check the
 whole matrix in 47 cases (Table~\ref{tab:verify}). Each gRPC call carries an
-empty message. That is enough to tell the two outcomes apart: a call that
-reaches the application comes back with the application's own answer, often
-an error about the missing fields, while a call stopped by the proxy comes
-back with gRPC status 7, \texttt{PermissionDenied}.
+empty message, except \texttt{ShipOrder}, which gets an empty address because
+a completely empty request crashes \texttt{shippingservice}
+(section~\ref{sec:insights}). That is enough to tell the outcomes apart. The
+report uses four gRPC status codes: 0 (\texttt{OK}) and 2
+(\texttt{UNKNOWN}, here an error raised by the application) mean the call
+reached the application; 7 (\texttt{PERMISSION\_DENIED}) means the proxy
+refused it; 5 (\texttt{NOT\_FOUND}) is what the proxy returns when a request
+matches no route.
 
 \begin{table}[h]
   \centering
@@ -184,18 +233,38 @@ back with gRPC status 7, \texttt{PermissionDenied}.
     total & 47 & all passed \\
     \bottomrule
   \end{tabular}
-  \caption{What \texttt{attack/verify.sh} checks. \texttt{2/2} means each pod
-    runs both its application container and the Linkerd proxy. Full output:
-    \texttt{evidence/05-verify-after.txt}, and with the policies off
-    \texttt{evidence/03-verify-before.txt}, where every attack case reaches
-    the application.}
+  \caption{What \texttt{attack/verify.sh} checks. Redis speaks plain TCP, so
+    a refused connection is simply closed and the attacker gets no reply.
+    \texttt{2/2} means each pod runs both its application container and the
+    Linkerd proxy. Full output: \texttt{stage3/evidence/05-verify-after.txt},
+    and with the policies off \texttt{stage3/evidence/03-verify-before.txt},
+    where every attack case reaches the application.}
   \label{tab:verify}
 \end{table}
+
+\textbf{Namespace default-deny.} The policies cover every application port,
+but a port without a \texttt{Server} still falls back to Linkerd's default,
+\texttt{all-unauthenticated}. That leaves the proxy admin port 4191 open on
+every pod, so any pod can read another service's traffic metrics. Switching
+the namespace default to \texttt{deny} closes it, together with one extra
+policy that lets only the linkerd-viz Prometheus read \texttt{/metrics} and
+only the kubelet reach the proxy's own health checks
+(\texttt{policies/namespace-default-deny/}, \texttt{./zero-trust.sh deny
+on}). We tested it: \texttt{verify.sh} still passed, Prometheus kept
+scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}
+(\texttt{stage3/evidence/07-verify-default-deny.txt}). We left it optional
+because the proxy reads the default only when it starts, so switching it on
+or off restarts every pod, and with \texttt{deny} in place, removing the
+policies no longer opens the shop but breaks it, which changes the
+before/after demo.
 
 \subsection*{Step 4: Prometheus and Grafana}
 
 Grafana runs in its own namespace, inside the mesh, and reads the Prometheus
-that comes with linkerd-viz, so nothing else has to collect metrics. The setup
+that comes with linkerd-viz, so nothing else has to collect metrics. Of the
+two metric stores considered in stage 1, Prometheus and VictoriaMetrics, this
+made Prometheus the obvious choice: it was already running and scraping every
+proxy. The setup
 scripts install linkerd-viz before the shop, so every application pod starts
 ready for \texttt{linkerd viz tap}, and then apply \texttt{observability/}
 with \texttt{kubectl apply -k}. The dashboard ``Zero Trust: allowed vs
@@ -214,24 +283,34 @@ pods. Below are the denied and allowed rates per service,
 and the table ``Who was denied, and where'' with the target service, the
 route and the caller of every refusal. A caller outside the mesh has no
 identity and is shown with the reason \texttt{no\_tls\_from\_remote}.
+The share of allowed calls with a mesh identity stays just under 100\,\%
+because the \texttt{frontend} also receives traffic from outside the mesh:
+the shop's visitors through the k3d load balancer and the kubelet's health
+checks.
 
-We tested the dashboard on a cluster built from scratch on Windows: three
-runs of the attack script gave 12 refused calls, the dashboard counted 12,
-and it showed no denied health checks and no denied TCP connections. Running
-every dashboard query through Grafana's API gave the same numbers
+We tested the dashboard twice. On a cluster built from scratch on Windows,
+three runs of the attack script gave 12 refused calls and the dashboard
+counted 12. A second run on an existing cluster gave the same result, with no
+denied health checks and no denied TCP connections; this time every dashboard
+query was also run through Grafana's API and the output kept
 (\texttt{stage4/evidence/}).
 
 \begin{figure}[h]
   \centering
   \evidence{10-grafana.png}{\linewidth}{9cm}{Grafana dashboard right after
     \texttt{attack/attack.sh}}
+
+  \vspace{0.5em}
+  \evidence{10b-grafana-denied.png}{\linewidth}{3cm}{the ``Who was denied''
+    table, enlarged}
   \caption{The dashboard after the attack runs with the policies on: 16
     denied calls, all on \texttt{paymentservice} and
     \texttt{cartservice}, half from the \texttt{adservice} identity and half
     from the pod outside the mesh. The gap in the allowed-requests chart
     around 19:48 is the run with the policies off: the panels count only
     traffic that passes through our \texttt{Server}s, and without the
-    policies there are none.}
+    policies there are none, so in the ``before'' state the dashboard shows
+    nothing at all. Bottom: the table of refusals, enlarged.}
   \label{fig:grafana}
 \end{figure}
 
@@ -251,8 +330,9 @@ Table~\ref{tab:attack} shows the two runs. Without the policies
 missing card number, and \texttt{GetCart} succeeds. With the policies on
 (\texttt{./zero-trust.sh on}) all four end with \texttt{PermissionDenied}
 before reaching the application, and the Grafana dashboard lists each refusal
-with the caller's identity (Figure~\ref{fig:grafana}). The shop kept working
-during both runs.
+with the caller's identity (Figure~\ref{fig:grafana}). That the shop works
+in both states is checked by \texttt{verify.sh}, run once with the policies
+off and once with them on (Table~\ref{tab:verify}).
 
 \begin{table}[h]
   \centering
@@ -267,16 +347,18 @@ during both runs.
                        & \texttt{GetCart} & status 0 (success)                               & status 7 \\
     \bottomrule
   \end{tabular}
+  \captionsetup{justification=raggedright}
   \caption{gRPC status of each call made by \texttt{attack/attack.sh}. Status 2
     is the payment service failing on the empty card data, which means the
     call reached it; status 7 is \texttt{PermissionDenied} from the proxy.
-    Full output: \texttt{evidence/09-attack-before.txt} and
-    \texttt{evidence/11-attack-after.txt}.}
+    Full output: \texttt{stage3/evidence/09-attack-before.txt} and
+    \texttt{stage3/evidence/11-attack-after.txt}.}
   \label{tab:attack}
 \end{table}
 
 % ---------------------------------------------------------------- 2
 \section{Insights and challenges}
+\label{sec:insights}
 
 \subsection*{Routes are mandatory, so per-method rules cost little}
 
@@ -304,7 +386,7 @@ interrupted setup run, one node got a different pod network, and
 \texttt{recommendationservice} kept failing their health checks and
 restarting, and checkout stopped working.
 
-\subsection*{Least privilege also limits a compromised service}
+\subsection*{What least privilege does for a compromised service}
 
 The \texttt{attacker-as-frontend} pod shows what the policies can't do: a pod
 with the frontend's identity still has the frontend's rights. It can read
@@ -329,9 +411,12 @@ the policies are applied, we put each \texttt{Server} last in its file, so it
 is created after its routes and policies. When they are removed, we delete
 them with one command that selects them by label and lists the
 \texttt{Server}s as the first resource type, so they go before the rest.
-Removal now loses no request. Applying can still refuse up to five frontend
-requests, because the proxies receive the new rules a moment apart and a
-\texttt{Server} can arrive before its routes. For a demo we accept that.
+Removal now loses no request. Applying can still refuse a few requests,
+because the proxies receive the new rules a moment apart and a
+\texttt{Server} can arrive before its routes: in three remove/apply cycles
+this hit 0 to 5 \texttt{frontend} requests per apply and an occasional
+health check, which does not restart a pod (\texttt{policies/README.md}).
+For a demo we accept that.
 
 \subsection*{Testing the tests}
 
@@ -375,19 +460,52 @@ pair, because that denial creates a new counter and a rate needs two samples.
 The ``since pod start'' total and the table do count it, so for the demo we
 run the attack more than once.
 
-\subsection*{Resource cost of the policies}
+\subsection*{Resource cost of the mesh and the policies}
 
-We measured memory and latency with the policies on and off, one snapshot
-each, a minute apart. Each Linkerd proxy used 12--16~MiB in both cases, and
-the median latency of every service was the same: about 1~ms for the gRPC
-services and 14~ms for the frontend. The 99th percentile moved in both
-directions between the two snapshots. Within what two snapshots can show, the
-policies add no measurable cost; we did not run a proper load test
-(\texttt{evidence/12-top-on.txt}, \texttt{evidence/12-top-off.txt}).
+Kacper measured the overhead with \texttt{fortio} in three variants: the shop
+without the mesh, with mTLS only, and with mTLS and the policies
+(Table~\ref{tab:perf}). Each number is the median of three 60-second runs at
+a fixed 20 requests per second, with the shop redeployed for each variant.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lrrr}
+    \toprule
+    Median latency (p50) & No mesh & mTLS & mTLS + policies \\
+    \midrule
+    \texttt{ListProducts}, direct gRPC call & 0.8 ms  & 1.7 ms  & 1.7 ms \\
+    product page (\texttt{frontend})       & 10.9 ms & 22.7 ms & 22.6 ms \\
+    home page (\texttt{frontend})          & 16.4 ms & 28.3 ms & 27.4 ms \\
+    \bottomrule
+  \end{tabular}
+  \caption{Latency overhead of the mesh and the policies. Details, CPU,
+    throughput and the raw runs: \texttt{stage4/performance/}.}
+  \label{tab:perf}
+\end{table}
+
+mTLS roughly doubles the latency of a single call, adding about 1~ms per hop,
+which adds up to about 12~ms on a page that makes many calls. The policies
+add no measurable latency on top of that: the medians differ by less than
+1~ms. The maximum throughput of the pages stayed the same in all three
+variants (45--47 and 56--58 requests per second), because it is limited by
+the shop's own CPU limits. The proxies of all shop pods together used about
+280 millicores of CPU at 20 requests per second.
+
+Proxy memory depends on how long the proxy has been running. Right after the
+shop was redeployed, the proxies used about 3.6~MiB each, as in stage 2.
+After several hours of running, \texttt{kubectl top} showed 12--16~MiB per
+proxy, the same with the policies on and off
+(\texttt{stage3/evidence/12-top-on.txt}, \texttt{12-top-off.txt}). We did not
+investigate what the memory grows with. All numbers come from one laptop and
+only support comparisons between the variants.
 
 \subsection*{Limits of the delivered solution}
 
 \begin{itemize}[itemsep=2pt]
+  \item Unless the namespace default-deny is switched on, the proxy admin
+    port 4191 stays open on every pod, and any pod can read another
+    service's traffic metrics.
   \item The health checks are allowed by node address, so the policies assume
     exactly three nodes with the pod networks k3d gave them. A different
     cluster needs those addresses changed.
@@ -408,15 +526,16 @@ policies add no measurable cost; we did not run a proper load test
 After step 2, the mesh encrypted every connection and gave each service a
 verifiable identity, but a compromised pod could still call the payment
 service directly. The authorization policies from step 3 close that gap.
-Every service now accepts only the callers and methods the shop uses, the
-attack from stage 2 ends with \texttt{PermissionDenied}, and the shop keeps
-working. None of this needed a change to the application. The Grafana
+Every application port now accepts only the callers and methods the shop
+uses, and with the optional namespace default-deny so does the proxy's admin
+port. The attack from stage 2 ends with \texttt{PermissionDenied}, and the
+shop keeps working. None of this needed a change to the application. The Grafana
 dashboard from step 4 shows each refusal and who caused it.
 
 \begin{table}[h]
   \centering
   \small
-  \begin{tabular}{p{4.6cm}p{9.4cm}}
+  \begin{tabular}{p{5.2cm}p{8.8cm}}
     \toprule
     Requirement (stage 1) & How it is met \\
     \midrule
@@ -424,8 +543,9 @@ dashboard from step 4 shows each refusal and who caused it.
       connections between services secured (stage 2). \\
     Service identity verification & every proxy has a certificate for its
       ServiceAccount; the policies authorize by that identity. \\
-    Access control & 11 \texttt{Server}s with per-method routes and policies
-      (step 3). \\
+    Access control & 11 \texttt{Server}s: per-method routes and policies on
+      the nine gRPC services, per-port rules for \texttt{frontend} and
+      \texttt{redis-cart}, optional namespace default-deny (step 3). \\
     Observability & Grafana dashboard of allowed and denied traffic on the
       linkerd-viz Prometheus (step 4). \\
     Security validation & packet capture without and with mTLS (stage 2); the
