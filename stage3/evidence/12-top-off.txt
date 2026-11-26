@@ -1,0 +1,43 @@
+POD                                      NAME            CPU(cores)   MEMORY(bytes)   
+adservice-7bb459b99b-bb8mn               linkerd-proxy   2m           12Mi            
+adservice-7bb459b99b-bb8mn               server          2m           91Mi            
+attacker-as-adservice                    curl            0m           0Mi             
+attacker-as-adservice                    linkerd-proxy   1m           14Mi            
+attacker-as-frontend                     curl            0m           10Mi            
+attacker-as-frontend                     linkerd-proxy   1m           12Mi            
+attacker-outside                         curl            0m           1Mi             
+cartservice-7fbc949c46-ldgfn             linkerd-proxy   3m           14Mi            
+cartservice-7fbc949c46-ldgfn             server          5m           49Mi            
+checkoutservice-65c864d57-clmkz          linkerd-proxy   3m           14Mi            
+checkoutservice-65c864d57-clmkz          server          1m           11Mi            
+currencyservice-844ddbb5cc-s44sk         linkerd-proxy   5m           12Mi            
+currencyservice-844ddbb5cc-s44sk         server          6m           35Mi            
+emailservice-85d84c6fd8-hcckk            linkerd-proxy   1m           12Mi            
+emailservice-85d84c6fd8-hcckk            server          2m           35Mi            
+frontend-ff9c849bb-bbkn9                 linkerd-proxy   15m          16Mi            
+frontend-ff9c849bb-bbkn9                 server          13m          16Mi            
+loadgenerator-5578b97c67-vr2cw           linkerd-proxy   3m           12Mi            
+loadgenerator-5578b97c67-vr2cw           main            4m           78Mi            
+paymentservice-565d9cd48c-f6vzp          linkerd-proxy   1m           12Mi            
+paymentservice-565d9cd48c-f6vzp          server          1m           25Mi            
+productcatalogservice-76fbb49475-djgpn   linkerd-proxy   6m           12Mi            
+productcatalogservice-76fbb49475-djgpn   server          5m           9Mi             
+recommendationservice-589d977db8-5w86h   linkerd-proxy   4m           12Mi            
+recommendationservice-589d977db8-5w86h   server          8m           33Mi            
+redis-cart-76f9c5589f-jrvzv              linkerd-proxy   1m           14Mi            
+redis-cart-76f9c5589f-jrvzv              redis           2m           13Mi            
+shippingservice-6d95ff984b-jmjg6         linkerd-proxy   2m           12Mi            
+shippingservice-6d95ff984b-jmjg6         server          1m           10Mi            
+NAME                    MESHED   SUCCESS       RPS   LATENCY_P50   LATENCY_P95   LATENCY_P99   TCP_CONN
+adservice                  1/1   100.00%    2.1rps           1ms           1ms           1ms          6
+cartservice                1/1   100.00%    3.2rps           1ms           1ms           2ms         10
+checkoutservice            1/1   100.00%    0.5rps           1ms           9ms          10ms          6
+currencyservice            1/1   100.00%    8.8rps           1ms           1ms           2ms         10
+emailservice               1/1   100.00%    0.8rps           1ms           1ms           1ms          6
+frontend                   1/1   100.00%    3.3rps          14ms          28ms          37ms          3
+loadgenerator              1/1   100.00%    0.3rps           1ms           1ms           1ms          1
+paymentservice             1/1   100.00%    0.6rps           1ms           1ms           1ms          6
+productcatalogservice      1/1   100.00%   16.8rps           1ms           1ms           1ms         13
+recommendationservice      1/1   100.00%    2.8rps           2ms           3ms           4ms          6
+redis-cart                 1/1   100.00%    0.3rps           1ms           1ms           1ms          5
+shippingservice            1/1   100.00%    1.4rps           1ms           1ms           2ms         10

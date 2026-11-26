@@ -1,0 +1,4 @@
+attacker-outside       -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  
+attacker-outside       -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  
+attacker-as-adservice  -> paymentservice:50051/hipstershop.PaymentService/Charge     HTTP 200  grpc-status: 7  client 10.42.0.136:44370: server: 10.42.2.75:4143: unauthorized request on route
+attacker-as-adservice  -> cartservice:7070/hipstershop.CartService/GetCart           HTTP 200  grpc-status: 7  client 10.42.0.136:34948: server: 10.42.1.97:4143: unauthorized request on route
