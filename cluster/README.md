@@ -3,14 +3,16 @@
 Only **Docker** must be installed and running (Windows: Docker Desktop with WSL2 backend). Give Docker 6–7 GB of memory: 4 GB is the bare minimum for the shop alone. On Windows, the test scripts in `attack/` also need **Git Bash**.
 k3d, kubectl and the linkerd CLI are downloaded automatically (pinned versions) into `./.tools/` — no admin rights needed.
 
-| OS | Run from the repo root | With the Zero-Trust policies on |
+| OS | Run from the repo root | Protected: policies + namespace default-deny |
 |----|-----|-----|
 | Linux / macOS | `./setup.sh` | `./setup.sh --protect` |
 | Windows (PowerShell) | `powershell -ExecutionPolicy Bypass -File .\setup.ps1` | add `-Protect` |
 
 The script creates the cluster, installs Linkerd and deploys `app/kubernetes-manifests.yaml` (Online Boutique v0.10.7) with a Linkerd proxy in every pod.
 
-Without `--protect` the cluster has mTLS but **no authorization policies**: any pod can still call any service. That is the "before" state of the demo, and the script ends by printing which protections are on. To turn the policies on or off later, use `zero-trust.sh` (Windows: `zero-trust.ps1`, same commands):
+With `--protect` on a new cluster, the per-service policies and the namespace default-deny are in place before the shop starts, so every pod starts protected and nothing restarts. On a cluster whose shop already runs without the default-deny, `--protect` turns it on with `./zero-trust.sh deny on`, which restarts every pod one at a time (about 5 minutes).
+
+Without `--protect` the cluster has mTLS but **no authorization policies**: any pod can still call any service. That is the "before" state of the demo, and the cluster to use for a live before/after (`zero-trust.sh on` / `off` take seconds; on a protected cluster `off` first turns the default-deny off, which restarts every pod), and the script ends by printing which protections are on. To turn the policies on or off later, use `zero-trust.sh` (Windows: `zero-trust.ps1`, same commands):
 
 | Command | Effect |
 |---|---|

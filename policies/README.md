@@ -64,7 +64,8 @@ authentication. That gives an attacker two different answers:
 ## Apply and remove
 
 `setup.sh` leaves the cluster meshed but unprotected on purpose, so the attack can be
-shown before and after (`setup.sh --protect` turns the policies on at the end).
+shown before and after (`setup.sh --protect` turns the policies and the namespace
+default-deny on).
 
 The simple way is `zero-trust.sh` in the repo root (Windows: `zero-trust.ps1`), which
 also creates the attacker test pods and keeps the right order:

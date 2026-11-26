@@ -1,6 +1,6 @@
 # One-click setup (Windows PowerShell 5.1+ / pwsh): k3d cluster + Linkerd + Online Boutique + Grafana. Only Docker is required.
 #   .\setup.ps1            meshed (mTLS) but without authorization policies: the "before" state of the demo
-#   .\setup.ps1 -Protect   the same, then turns the Zero-Trust policies on (.\zero-trust.ps1 on)
+#   .\setup.ps1 -Protect   the same with the Zero-Trust policies and the namespace default-deny on
 param([switch]$Protect)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -107,6 +107,19 @@ if (Test-Command { kubectl get deployment metrics-api -n linkerd-viz }) {
 kubectl wait --for=condition=available deployment --all -n linkerd-viz --timeout=300s
 if ($LASTEXITCODE -ne 0) { throw 'linkerd-viz did not become available' }
 
+$DenyKey = 'config.linkerd.io/default-inbound-policy'
+if ($Protect -and -not (kubectl get deployment frontend -n default --ignore-not-found -o name)) {
+  # New shop: put the policies and the namespace default in place first, so every pod starts
+  # protected and nothing has to be restarted (the proxy reads the default only when it starts).
+  Write-Host '>> Applying the Zero-Trust policies and the namespace default-deny before the shop starts'
+  kubectl apply -f policies/ | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Applying the policies failed' }
+  kubectl apply -f policies/namespace-default-deny/admin-port.yaml | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Applying the admin port policy failed' }
+  kubectl annotate namespace default "$DenyKey=deny" --overwrite | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Setting the namespace default-deny failed' }
+}
+
 # --native-sidecar: the proxy must be up before loadgenerator's init container calls the frontend
 Write-Host '>> Deploying Online Boutique with Linkerd proxies'
 Install-Manifests { linkerd inject --native-sidecar app/kubernetes-manifests.yaml } 'Online Boutique'
@@ -124,6 +137,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Grafana did not become available' }
 $zeroTrust = Join-Path $PSScriptRoot 'zero-trust.ps1'
 if ($Protect) {
   & $zeroTrust on
+  # A shop that was already running without the default-deny: switch it on, restarting every pod
+  $ns = kubectl get namespace default -o json | Out-String | ConvertFrom-Json
+  if ($ns.metadata.annotations.$DenyKey -ne 'deny') { & $zeroTrust deny on }
 } else {
   # Attacker test pods for the "before" demo (attack/attack.sh, attack/verify.sh --expect-open)
   kubectl apply -f attack/attackers.yaml | Out-Null

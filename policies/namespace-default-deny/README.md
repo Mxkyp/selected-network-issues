@@ -19,11 +19,12 @@ authorization refuses everything. The admin port then needs its own policy
 
 ## Before you enable it
 
-- **Install `linkerd-viz` first** if you use variant A below (the setup scripts do not
-  install it): `linkerd viz install | kubectl apply -f -`, wait for `linkerd viz check`,
-  and only then enable phase 2: its pod restarts also give every pod the tap support
-  that `linkerd viz tap` needs. Without a scraper, phase 2 still protects the port, but
-  nothing collects the proxy metrics.
+- **`setup.sh --protect` already enables it.** On a new cluster it applies the policies
+  and the namespace default before the shop starts, so no pod restarts. The steps below
+  are for a cluster that is already running.
+- **linkerd-viz** (variant A below) is installed by the setup scripts before the shop.
+  Without a scraper, phase 2 still protects the port, but nothing collects the proxy
+  metrics.
 - **The before/after demo changes.** With default-deny, deleting the policies in
   `policies/` no longer opens the shop: every port falls back to `deny` and the shop
   stops working. To get back to the unprotected state you have to turn phase 2 off first
@@ -51,8 +52,9 @@ This is what `admin-port.yaml` is set up for, and nothing has to change.
   `http://prometheus.linkerd-viz.svc.cluster.local:9090`.
 - Limitation: it keeps data for only 6 hours. That is enough for a demo.
 
-Grafana itself needs no policy. It only queries Prometheus and never connects to the
-application pods.
+Grafana needs no policy on the application pods: it only queries Prometheus and never
+connects to them. It does need one for the linkerd-viz Prometheus, which protects itself;
+`observability/prometheus-access.yaml` adds it (see `observability/README.md`).
 
 ### Variant B: your own Prometheus, inside the mesh
 

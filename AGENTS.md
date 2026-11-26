@@ -59,11 +59,11 @@ Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6â€
 
 | Goal | Linux / macOS | Windows (PowerShell) |
 |---|---|---|
-| Cluster + Linkerd + Online Boutique, **with** the Zero-Trust policies | `./setup.sh --protect` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Protect` |
+| Cluster + Linkerd + Online Boutique, **with** the Zero-Trust policies and the namespace default-deny | `./setup.sh --protect` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1 -Protect` |
 | A new cluster **without** policies (mTLS only, the "before" state of the demo) | `./setup.sh` | `powershell -ExecutionPolicy Bypass -File .\setup.ps1` |
 | Show what is on | `./zero-trust.sh status` | `powershell -ExecutionPolicy Bypass -File .\zero-trust.ps1 status` |
 | Policies on / off on a running cluster | `./zero-trust.sh on` / `off` | same with `zero-trust.ps1 on` / `off` |
-| Optional phase 2, namespace default-deny (restarts all pods; see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
+| Namespace default-deny on a running cluster (already on with `--protect`; restarts all pods; see `policies/namespace-default-deny/README.md`) | `./zero-trust.sh deny on` / `deny off` | same with `zero-trust.ps1 deny on` / `deny off` |
 | Show the attack (lateral movement from attacker pods) | `attack/attack.sh` | from Git Bash |
 | Check the policies end to end | `attack/verify.sh` (policies on) or `attack/verify.sh --expect-open` (policies off) | from Git Bash |
 | Pause / resume | `.tools/k3d cluster stop sina`, then `./setup.sh` | `.tools\k3d.exe cluster stop sina`, then `setup.ps1` again |

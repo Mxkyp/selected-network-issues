@@ -195,7 +195,7 @@ to a route, and in audit mode the proxy lists all such traffic as audited,
 including the loadgenerator's, even though the policy allows it. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
 version) switch the policies without restarting any pod, which is what the
 before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
-cluster with the policies already on.
+cluster with the policies and the namespace default-deny (below) already on.
 
 \textbf{Verification.} Three test pods act as attackers: one outside the mesh
 (no identity), one running as \texttt{adservice} (a compromised minor
@@ -252,11 +252,15 @@ only the kubelet reach the proxy's own health checks
 (\texttt{policies/namespace-default-deny/}, \texttt{./zero-trust.sh deny
 on}). We tested it: \texttt{verify.sh} still passed, Prometheus kept
 scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}
-(\texttt{stage3/evidence/07-verify-default-deny.txt}). We left it optional
-because the proxy reads the default only when it starts, so switching it on
-or off restarts every pod, and with \texttt{deny} in place, removing the
-policies no longer opens the shop but breaks it, which changes the
-before/after demo.
+(\texttt{stage3/evidence/07-verify-default-deny.txt}). It is part of the
+protected configuration: \texttt{setup.sh -{}-protect} sets the default before
+the shop starts, so the pods start with it and nothing has to restart. On a
+running cluster the switch is slower, because the proxy reads the default only
+when it starts, so turning it on or off restarts every pod. With \texttt{deny}
+in place, removing the policies also no longer opens the shop but breaks it.
+The live before/after demo therefore uses a cluster set up without
+\texttt{-{}-protect} and switches only the per-service policies, which takes
+seconds.
 
 \subsection*{Step 4: Prometheus and Grafana}
 
@@ -455,6 +459,14 @@ mesh, so that it has an identity, and add a policy that lets that identity
 query Prometheus. The policies protect the monitoring stack just as they
 protect the shop.
 
+The namespace default-deny adds a second effect. On a cluster set up with
+\texttt{-{}-protect}, the proxies refused between 18 and 32 requests for
+\texttt{/metrics} per pod in the first minutes after the shop started, all
+sent without mTLS, while Prometheus was apparently not yet treating the new
+pods as meshed. After that every scrape used mTLS and was allowed, so the
+metrics are complete once the shop has settled, but the dashboard counts
+these refusals as denied calls.
+
 The per-second chart also misses the first denial of a new caller and method
 pair, because that denial creates a new counter and a rate needs two samples.
 The ``since pod start'' total and the table do count it, so for the demo we
@@ -503,9 +515,9 @@ only support comparisons between the variants.
 \subsection*{Limits of the delivered solution}
 
 \begin{itemize}[itemsep=2pt]
-  \item Unless the namespace default-deny is switched on, the proxy admin
-    port 4191 stays open on every pod, and any pod can read another
-    service's traffic metrics.
+  \item On a cluster without the namespace default-deny, such as the one for
+    the live before/after demo, the proxy admin port 4191 stays open on
+    every pod, and any pod can read another service's traffic metrics.
   \item The health checks are allowed by node address, so the policies assume
     exactly three nodes with the pod networks k3d gave them. A different
     cluster needs those addresses changed.
@@ -527,8 +539,8 @@ After step 2, the mesh encrypted every connection and gave each service a
 verifiable identity, but a compromised pod could still call the payment
 service directly. The authorization policies from step 3 close that gap.
 Every application port now accepts only the callers and methods the shop
-uses, and with the optional namespace default-deny so does the proxy's admin
-port. The attack from stage 2 ends with \texttt{PermissionDenied}, and the
+uses, and with the namespace default-deny, which the protected setup switches
+on, so does the proxy's admin port. The attack from stage 2 ends with \texttt{PermissionDenied}, and the
 shop keeps working. None of this needed a change to the application. The Grafana
 dashboard from step 4 shows each refusal and who caused it.
 
@@ -545,7 +557,7 @@ dashboard from step 4 shows each refusal and who caused it.
       ServiceAccount; the policies authorize by that identity. \\
     Access control & 11 \texttt{Server}s: per-method routes and policies on
       the nine gRPC services, per-port rules for \texttt{frontend} and
-      \texttt{redis-cart}, optional namespace default-deny (step 3). \\
+      \texttt{redis-cart}, namespace default-deny for everything else (step 3). \\
     Observability & Grafana dashboard of allowed and denied traffic on the
       linkerd-viz Prometheus (step 4). \\
     Security validation & packet capture without and with mTLS (stage 2); the
