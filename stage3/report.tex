@@ -50,9 +50,9 @@ building them.
 Everything runs on a local k3d cluster with one server and two agent nodes.
 The setup scripts pin k3d v5.9.0, kubectl v1.37.2, Linkerd edge-26.11.1 and
 Gateway API v1.2.1, and the manifests pin Online Boutique v0.10.7 and Grafana
-11.3.0. The scripts, policies and evidence named below are in the project
-repository, \url{https://github.com/Mxkyp/selected-network-issues}; paths are
-relative to its root.
+11.3.0. The scripts, manifests and policies named below are in the Project
+Resources archive submitted with this report; paths are relative to its
+root.
 
 % ---------------------------------------------------------------- 1
 \section{Work progress}
@@ -188,8 +188,8 @@ proxy lets a request through but records that the policies would have denied
 it, both in its metrics and in its log. We then placed an order through the
 shop and ran the attacker pods described below. On the nine gRPC services
 and on \texttt{redis-cart}, every audited request came from an attacker pod
-and none from a legitimate caller, so we switched to enforcing
-(\texttt{stage3/evidence/04-audit.txt}). The \texttt{frontend} reports
+and none from a legitimate caller, so we switched to enforcing. The
+\texttt{frontend} reports
 differently: its policy is attached to the whole \texttt{Server} rather than
 to a route, and in audit mode the proxy lists all such traffic as audited,
 including the loadgenerator's, even though the policy allows it. \texttt{./zero-trust.sh on} and \texttt{off} (and the PowerShell
@@ -236,9 +236,9 @@ matches no route.
   \caption{What \texttt{attack/verify.sh} checks. Redis speaks plain TCP, so
     a refused connection is simply closed and the attacker gets no reply.
     \texttt{2/2} means each pod runs both its application container and the
-    Linkerd proxy. Full output: \texttt{stage3/evidence/05-verify-after.txt},
-    and with the policies off \texttt{stage3/evidence/03-verify-before.txt},
-    where every attack case reaches the application.}
+    Linkerd proxy. With the policies off, \texttt{verify.sh -{}-expect-open}
+    runs the 43 cases that apply there, and every attack case reaches the
+    application.}
   \label{tab:verify}
 \end{table}
 
@@ -251,8 +251,8 @@ policy that lets only the linkerd-viz Prometheus read \texttt{/metrics} and
 only the kubelet reach the proxy's own health checks
 (\texttt{policies/namespace-default-deny/}, \texttt{./zero-trust.sh deny
 on}). We tested it: \texttt{verify.sh} still passed, Prometheus kept
-scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}
-(\texttt{stage3/evidence/07-verify-default-deny.txt}). It is part of the
+scraping, and an attacker pod got HTTP 403 on \texttt{/metrics}. It is part
+of the
 protected configuration: \texttt{setup.sh -{}-protect} sets the default before
 the shop starts, so the pods start with it and nothing has to restart. On a
 running cluster the switch is slower, because the proxy reads the default only
@@ -296,8 +296,7 @@ We tested the dashboard twice. On a cluster built from scratch on Windows,
 three runs of the attack script gave 12 refused calls and the dashboard
 counted 12. A second run on an existing cluster gave the same result, with no
 denied health checks and no denied TCP connections; this time every dashboard
-query was also run through Grafana's API and the output kept
-(\texttt{stage4/evidence/}).
+query was also run through Grafana's API, with the same numbers.
 
 \begin{figure}[h]
   \centering
@@ -354,9 +353,7 @@ off and once with them on (Table~\ref{tab:verify}).
   \captionsetup{justification=raggedright}
   \caption{gRPC status of each call made by \texttt{attack/attack.sh}. Status 2
     is the payment service failing on the empty card data, which means the
-    call reached it; status 7 is \texttt{PermissionDenied} from the proxy.
-    Full output: \texttt{stage3/evidence/09-attack-before.txt} and
-    \texttt{stage3/evidence/11-attack-after.txt}.}
+    call reached it; status 7 is \texttt{PermissionDenied} from the proxy.}
   \label{tab:attack}
 \end{table}
 
@@ -507,8 +504,7 @@ the shop's own CPU limits. The proxies of all shop pods together used about
 Proxy memory depends on how long the proxy has been running. Right after the
 shop was redeployed, the proxies used about 3.6~MiB each, as in stage 2.
 After several hours of running, \texttt{kubectl top} showed 12--16~MiB per
-proxy, the same with the policies on and off
-(\texttt{stage3/evidence/12-top-on.txt}, \texttt{12-top-off.txt}). We did not
+proxy, the same with the policies on and off. We did not
 investigate what the memory grows with. All numbers come from one laptop and
 only support comparisons between the variants.
 

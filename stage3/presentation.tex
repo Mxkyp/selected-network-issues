@@ -471,8 +471,8 @@ attacker-as-adservice  -> cartservice     GetCart  grpc-status: 7  unauthorized 
 \note{Michał. The attack from stage 2, unchanged. Without policies, Charge comes
 back with the payment service's own error about the missing card number: the
 call got all the way into the application. With the policies, every call ends
-with status 7 at the proxy. Output shortened; the full output is in the
-report's evidence.}
+with status 7 at the proxy. Output shortened; the report has all four calls
+in a table.}
 
 \begin{frame}{What it costs}
   \centering

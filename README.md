@@ -1,8 +1,9 @@
 # Zero-Trust service mesh for Online Boutique
 
 Project resources of group 4, *Selected Issues of Network Applications* 2026/2027, Lodz
-University of Technology. Topic: *Modern Service Mesh: a better way to secure communication
-between microservices*.
+University of Technology: Jędrzej Bartoszewski, Michał Domagała, Kacper Maziarz, Mikołaj
+Pawłoś. Topic: *Modern Service Mesh: a better way to secure communication between
+microservices*.
 
 The scripts build a local Kubernetes cluster (k3d) running Google's Online Boutique shop
 inside the Linkerd service mesh. Every connection between the services is encrypted with
@@ -17,12 +18,17 @@ with and without the policies, and a Grafana dashboard shows the refused calls.
 | `setup.sh`, `setup.ps1` | build the whole environment with one command (Linux/macOS, Windows) |
 | `zero-trust.sh`, `zero-trust.ps1` | switch the authorization policies on and off on a running cluster |
 | `cluster/` | k3d cluster configuration; [`cluster/README.md`](cluster/README.md) covers stopping, restarting and troubleshooting |
-| `app/` | the Online Boutique v0.10.7 manifest, unmodified |
+| `app/` | the Online Boutique v0.10.7 manifest, unmodified (by Google, Apache License 2.0) |
 | `policies/` | the Linkerd authorization policies, one file per service; [`policies/README.md`](policies/README.md) has the allow-matrix and explains how they work |
 | `policies/namespace-default-deny/` | the namespace default-deny and the policy for the proxy admin port ([README](policies/namespace-default-deny/README.md)) |
-| `attack/` | attacker test pods, `attack.sh` (the attack) and `verify.sh` (47 checks of every allowed and forbidden call) |
+| `attack/` | attacker test pods (`attackers.yaml`), `attack.sh` (the attack), `verify.sh` (checks every allowed and forbidden call) and `lib.sh` (helpers they share) |
 | `observability/` | Grafana with the "Zero Trust: allowed vs denied" dashboard ([README](observability/README.md)) |
 | `stage4/performance/` | the script and results of the performance tests: mesh and policy overhead ([README](stage4/performance/README.md)) |
+
+The READMEs in the subdirectories use the project's step numbers: step 1 is the cluster and
+the shop, step 2 mTLS, step 3 the authorization policies, step 4 Grafana and step 5 the
+attack. "Phase 1" means the per-service policies in `policies/`, "phase 2" the namespace
+default-deny.
 
 ## Requirements
 
@@ -31,8 +37,13 @@ with and without the policies, and a Grafana dashboard shows the refused calls.
   kubectl and the Linkerd CLI into `.tools/`, without admin rights, and the cluster pulls
   the container images.
 - On Windows, Git Bash for the test scripts in `attack/`, which are written in bash.
+- Free ports 8080 and 3000 on the host. The setup script creates a k3d cluster named
+  `sina` and switches the current `kubectl` context to it.
+- Python 3, only for the performance tests in `stage4/performance/`.
 
-Run every command from this directory.
+Run every command from this directory. If `./setup.sh` fails with "Permission denied"
+because the unpacking tool dropped the executable bits, run `bash setup.sh` instead (the
+same works for the other `.sh` scripts).
 
 ## Build the environment
 
@@ -45,7 +56,8 @@ The first run takes about 10 minutes, mostly for downloading images. When it fin
 
 - the shop is at http://localhost:8080;
 - the Grafana dashboard is at http://localhost:3000 (no login needed);
-- `./zero-trust.sh status` shows which protections are on.
+- `./zero-trust.sh status` shows which protections are on (Windows:
+  `powershell -ExecutionPolicy Bypass -File .\zero-trust.ps1 status`).
 
 Running the script again is safe. It reuses the cluster, starts it if it is stopped, and
 never removes policies that are already on.
@@ -53,7 +65,8 @@ never removes policies that are already on.
 ## The attack, before and after
 
 Use a cluster built **without** `--protect`. On it, the policies switch on and off in seconds
-and no pod restarts. On Windows, run these commands in Git Bash.
+and no pod restarts. On a cluster built with `--protect`, the first `off` also turns the
+namespace default-deny off, which restarts every pod and takes about 5 minutes.
 
 ```bash
 ./zero-trust.sh off    # mTLS only, no authorization policies
@@ -63,15 +76,30 @@ attack/attack.sh       # the calls reach paymentservice and cartservice
 attack/attack.sh       # every call ends with gRPC status 7, PERMISSION_DENIED
 ```
 
+On Windows, run `zero-trust.ps1 off` and `on` in PowerShell (as above, with
+`powershell -ExecutionPolicy Bypass -File`) and `attack/attack.sh` in Git Bash.
+
+The output, shortened (status 2 is the payment service's own error about the missing card,
+status 0 a successful call, status 7 a refusal by the proxy):
+
+```
+# policies off
+attacker-outside       -> paymentservice  Charge   grpc-status: 2  ... (reading 'credit_card_number')
+attacker-outside       -> cartservice     GetCart  grpc-status: 0
+# policies on
+attacker-outside       -> paymentservice  Charge   grpc-status: 7
+attacker-outside       -> cartservice     GetCart  grpc-status: 7
+```
+
 `attack/attack.sh` makes four calls: from a pod outside the mesh and from a pod that uses the
 `adservice` identity, to `PaymentService/Charge` and `CartService/GetCart`. Without the
 policies, the payment service itself answers and fails only on the missing card data; with
 them, the Linkerd proxy refuses the call before it reaches the application. Run the attack
 two or three times about 15 seconds apart and the refusals appear on the Grafana dashboard.
 
-To check the whole allow-matrix, run `attack/verify.sh` with the policies on, or
-`attack/verify.sh --expect-open` with them off. It prints one line per check and ends with
-"All cases passed" or a non-zero exit code.
+To check the whole allow-matrix, run `attack/verify.sh` with the policies on (47 checks), or
+`attack/verify.sh --expect-open` with them off (43 checks). It prints one line per check and
+ends with "All cases passed" or a non-zero exit code.
 
 ## The namespace default-deny
 
@@ -100,5 +128,6 @@ them to the path: `export PATH="$PWD/.tools:$PATH"` (PowerShell:
 ## Tested versions
 
 k3d v5.9.0 · kubectl v1.37.2 · Linkerd edge-26.11.1 · Gateway API v1.2.1 · Online Boutique
-v0.10.7 · Grafana 11.3.0, on Linux and Windows laptops. The policies assume the three-node
-cluster that `cluster/k3d-config.yaml` creates.
+v0.10.7 · Grafana 11.3.0, on Linux and Windows laptops. macOS is supported by the scripts
+but was not tested. The policies assume the three-node cluster that `cluster/k3d-config.yaml`
+creates.

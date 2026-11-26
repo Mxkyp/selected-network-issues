@@ -36,7 +36,7 @@ memory they use. These are performance tests only; whether the attack is blocked
   the tables count only the shop pods.
 - `loadgenerator` scaled to 0; every deployment pinned to the same node in all variants;
   20 s warm-up per target after each switch.
-- Repeat with `python stage4/performance/run.py` (finished runs in `raw/` are skipped).
+- Repeat with `python3 stage4/performance/run.py` (finished runs in `raw/` are skipped).
 
 ## Findings
 

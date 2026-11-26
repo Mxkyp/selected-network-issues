@@ -10,9 +10,10 @@ Linkerd proxy before it reaches the application.
 
 Identities are the ServiceAccounts of the calling pods (namespace `default`).
 
-The matrix was taken from the Online Boutique source and confirmed against live traffic:
-`stage3/evidence/01-edges.txt` (which services talk to each other) and
-`stage3/evidence/02-methods.txt` (which methods each caller uses).
+The matrix was taken from the Online Boutique source and confirmed against live traffic
+(loadgenerator traffic plus orders placed by hand): `linkerd viz edges` showed which
+services talk to each other, and `linkerd viz tap` which methods each caller uses. The
+stage 3 report describes the capture.
 
 | Service | Pod port | Method | Allowed callers |
 |---|---|---|---|

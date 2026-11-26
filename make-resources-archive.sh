@@ -18,7 +18,6 @@ PREFIX=zero-trust-service-mesh/
 
 PATHS=(
   README.md
-  .gitattributes
   setup.sh setup.ps1
   zero-trust.sh zero-trust.ps1
   app
