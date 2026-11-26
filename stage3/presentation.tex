@@ -506,9 +506,10 @@ in a table.}
   \vspace{4pt}
   {\tiny fortio, median of 3 runs of 60 s per variant, one laptop: only for comparing the variants}
 \end{frame}
-\note{Kacper measured it. The encryption is what costs: roughly one millisecond
-per call between services. The authorization check on top of it is free within
-the precision of a laptop measurement.}
+\note{Kacper measured it. The mesh is what costs, the proxies with mTLS between
+them: roughly one millisecond per call between services. We did not measure the
+encryption on its own. The authorization check on top is free within the
+precision of a laptop measurement.}
 
 \begin{frame}{What we learned}
   \vfill
