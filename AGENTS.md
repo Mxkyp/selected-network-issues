@@ -73,6 +73,7 @@ Requirements: Docker (on Windows: Docker Desktop with the WSL2 backend) with 6â€
 - `kubectl`, `k3d` and `linkerd` are in `.tools/` (when they were not already installed): add it to the PATH to use them by hand, `export PATH="$PWD/.tools:$PATH"` (PowerShell: `$env:PATH = "$PWD\.tools;$env:PATH"`).
 - The shop is at http://localhost:8080. The setup scripts also install `linkerd-viz` and Grafana: the "Zero Trust: allowed vs denied" dashboard is at http://localhost:3000 (a cluster created before step 4 needs `.tools/k3d cluster edit sina --port-add 3000:3000@loadbalancer` once).
 - The allow-matrix and how the policies work: `policies/README.md`. The dashboard, its panels and limits: `observability/README.md`. Cluster details and troubleshooting: `cluster/README.md`.
+- Performance tests (no mesh vs mTLS vs mTLS with policies): what was tested, the results and how to repeat them are in `stage4/performance/README.md`.
 
 ## 6. Instructions for AI Assistants (Current Phase)
 

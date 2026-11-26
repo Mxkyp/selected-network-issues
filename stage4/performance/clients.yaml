@@ -1,0 +1,40 @@
+# Load generator pods for the overhead measurement (see run.py).
+# grpc-empty holds one gRPC frame with an empty message: flag byte 0 + 4-byte length 0.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: perf-payload
+  namespace: default
+binaryData:
+  grpc-empty: AAAAAAA=
+---
+# Outside the mesh in every variant: calls the public frontend like a browser.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: perf-outside
+  namespace: default
+  labels: {app: perf-client}
+spec:
+  nodeSelector: {kubernetes.io/hostname: k3d-sina-agent-0}
+  containers:
+    - name: fortio
+      image: fortio/fortio:1.69.5
+---
+# frontend identity, meshed only in variants B and C (run.py sets the annotation):
+# calls productcatalogservice directly, which the policies allow only for known callers.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: perf-frontend-id
+  namespace: default
+  labels: {app: perf-client}
+  annotations: {linkerd.io/inject: INJECT}
+spec:
+  serviceAccountName: frontend
+  nodeSelector: {kubernetes.io/hostname: k3d-sina-agent-0}
+  containers:
+    - name: fortio
+      image: fortio/fortio:1.69.5
+      volumeMounts: [{name: payload, mountPath: /payload}]
+  volumes: [{name: payload, configMap: {name: perf-payload}}]
