@@ -394,8 +394,11 @@ restarting, and checkout stopped working.
 The \texttt{attacker-as-frontend} pod shows what the policies can't do: a pod
 with the frontend's identity still has the frontend's rights. It can read
 shipping quotes and carts, because the real frontend must. It can no longer
-charge a card, send an e-mail or ship an order, which it could do before step
-3. Without a service mesh, the only way to express this would be in the
+call \texttt{Charge}, \texttt{SendOrderConfirmation} or \texttt{ShipOrder}
+directly, which it could do before step 3. It can still trigger all three by
+placing an order through \texttt{checkoutservice}, because the real frontend
+must be able to do that too; the policies decide who may call what, not what
+a permitted call leads to. Without a service mesh, the only way to express this would be in the
 application code of every service. \texttt{NetworkPolicy}, the traffic filter
 built into Kubernetes, works on IP addresses and labels and doesn't see gRPC
 methods at all.
@@ -505,12 +508,12 @@ variants (45--47 and 56--58 requests per second), because it is limited by
 the shop's own CPU limits. The proxies of all shop pods together used about
 280 millicores of CPU at 20 requests per second.
 
-Proxy memory depends on how long the proxy has been running. Right after the
-shop was redeployed, the proxies used about 3.6~MiB each, as in stage 2.
-After several hours of running, \texttt{kubectl top} showed 12--16~MiB per
-proxy, the same with the policies on and off. We did not
-investigate what the memory grows with. All numbers come from one laptop and
-only support comparisons between the variants.
+Proxy memory readings differed between measurements. In the performance runs
+the proxies used about 3.6~MiB each, as in stage 2, and on another cluster
+3--6~MiB each more than two hours after the shop was redeployed. Our
+\texttt{kubectl top} snapshots showed 12--16~MiB per proxy, the same with the
+policies on and off. We did not investigate why. All numbers come from one
+laptop and only support comparisons between the variants.
 
 \subsection*{Limits of the delivered solution}
 

@@ -245,7 +245,7 @@ single pod, which is what the live demo relies on.}
           \item Recorded with \texttt{linkerd viz tap}: loadgenerator traffic + orders by hand
           \item 14 gRPC connections $\to$ 20 (caller, method) pairs
           \item Caller = Kubernetes ServiceAccount = mTLS identity
-          \item Per \textbf{method}, not per port: frontend may get a shipping quote, but not ship an order
+          \item Per \textbf{method}, not per port: frontend may call \texttt{GetQuote}, but not \texttt{ShipOrder}
         \end{itemize}
       \end{block}
     \end{column}
@@ -346,8 +346,9 @@ to make sure no legitimate call would be blocked.}
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{alertblock}{Least privilege limits the damage}
-        A hijacked frontend can still ask for a shipping quote, as the real one
-        must, but can't charge a card or ship an order.
+        A hijacked frontend can't call \texttt{Charge} or \texttt{ShipOrder}
+        directly. It can still place an order through checkout, as the real
+        frontend must.
       \end{alertblock}
     \end{column}
   \end{columns}
@@ -355,8 +356,11 @@ to make sure no legitimate call would be blocked.}
 \note{Three attacker pods. The one outside the mesh and the one with the ad
 service's identity are refused everywhere. The interesting one runs as the
 frontend: it can still do what the frontend legitimately does, like asking for
-a shipping quote, but it can no longer charge a card, send an email or ship an
-order. Kubernetes NetworkPolicy can't express this, because it works on IP
+a shipping quote, but it can no longer call Charge, SendOrderConfirmation or
+ShipOrder directly. It can still trigger them by placing an order through
+checkout, because the real frontend has to be able to do that; the policies
+limit who may call what, not what a permitted call leads to. Kubernetes
+NetworkPolicy can't express this, because it works on IP
 addresses and doesn't see gRPC methods.}
 
 \begin{frame}{Step 3: verified in 47 cases}
@@ -497,8 +501,9 @@ in a table.}
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{exampleblock}{Policies}
-        No measurable cost: medians differ by less than 1 ms. Proxies: about
-        3.6 MiB each after start, 280 millicores together at 20 req/s.
+        No measurable cost: medians differ by less than 1 ms. Proxies: 3.6 to
+        16 MiB each depending on the measurement, 280 millicores together at
+        20 req/s.
       \end{exampleblock}
     \end{column}
   \end{columns}
