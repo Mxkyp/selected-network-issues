@@ -502,8 +502,8 @@ in a table.}
     \begin{column}{0.48\textwidth}
       \begin{exampleblock}{Policies}
         No measurable cost: medians differ by less than 1 ms. Proxies: 3.6 to
-        16 MiB each depending on the measurement, 280 millicores together at
-        20 req/s.
+        16 MiB each depending on the measurement; about 280 millicores together
+        at 20 req/s in the page tests.
       \end{exampleblock}
     \end{column}
   \end{columns}
@@ -511,7 +511,7 @@ in a table.}
   \vspace{4pt}
   {\tiny fortio, median of 3 runs of 60 s per variant, one laptop: only for comparing the variants}
 \end{frame}
-\note{Kacper measured it. The mesh is what costs, the proxies with mTLS between
+\note{We measured it with fortio. The mesh is what costs, the proxies with mTLS between
 them: roughly one millisecond per call between services. We did not measure the
 encryption on its own. The authorization check on top is free within the
 precision of a laptop measurement.}

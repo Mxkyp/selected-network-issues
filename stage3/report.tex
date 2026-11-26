@@ -11,6 +11,8 @@
 \usepackage{microtype}
 \usepackage{fancyvrb}
 \usepackage{float}
+\newfloat{listing}{H}{lol}
+\floatname{listing}{Listing}
 \input{common.tex}
 \usepackage[hidelinks]{hyperref}
 
@@ -169,7 +171,7 @@ version) switch the policies without restarting any pod, which is what the
 before/after demo in step 5 needs. \texttt{setup.sh -{}-protect} builds a new
 cluster with the policies and the namespace default-deny (below) already on.
 
-\begin{figure}[H]
+\begin{listing}[H]
 \begin{Verbatim}[fontsize=\footnotesize,frame=single,framesep=2mm]
 kind: Server                                  kind: AuthorizationPolicy
 metadata: {name: paymentservice}              metadata: {name: paymentservice-charge}
@@ -190,14 +192,13 @@ spec:                                         kind: MeshTLSAuthentication
         service: hipstershop.PaymentService
         method: Charge
 \end{Verbatim}
-\captionsetup{name=Listing}
 \caption{The four resources that let only \texttt{checkoutservice} call
   \texttt{PaymentService/Charge}, shortened (no \texttt{apiVersion},
   namespace or labels). The same file has a second route and policy for the
   health check. Full version: \texttt{policies/paymentservice.yaml} and
   \texttt{policies/00-authentications.yaml}.}
 \label{lst:payment}
-\end{figure}
+\end{listing}
 
 \textbf{Verification.} Three test pods act as attackers: one outside the mesh
 (no identity), one running as \texttt{adservice} (a compromised minor
@@ -476,10 +477,11 @@ run the attack more than once.
 
 \subsection*{Resource cost of the mesh and the policies}
 
-Kacper measured the overhead with \texttt{fortio} in three variants: the shop
+We measured the overhead with \texttt{fortio} in three variants: the shop
 without the mesh, with mTLS only, and with mTLS and the policies
 (Table~\ref{tab:perf}). Each number is the median of three 60-second runs at
-a fixed 20 requests per second, with the shop redeployed for each variant.
+a fixed 20 requests per second, with the shop redeployed when the mesh was
+added or removed.
 
 \begin{table}[H]
   \centering
@@ -505,8 +507,9 @@ the encryption separately from the rest of the proxies' work. The policies
 add no measurable latency on top of that: the medians differ by less than
 1~ms. The maximum throughput of the pages stayed the same in all three
 variants (45--47 and 56--58 requests per second), because it is limited by
-the shop's own CPU limits. The proxies of all shop pods together used about
-280 millicores of CPU at 20 requests per second.
+the shop's own CPU limits. In the page tests, the proxies of all shop pods
+together used about 280 millicores of CPU at 20 requests per second; in the
+direct gRPC test, about 27 millicores.
 
 Proxy memory readings differed between measurements. In the performance runs
 the proxies used about 3.6~MiB each, as in stage 2, and 3--6~MiB on the same
